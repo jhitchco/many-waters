@@ -28,7 +28,7 @@ func _ready() -> void:
 
 
 func start(id: String) -> void:
-	fb = Data.FLASHBACKS[id]
+	fb = Data.memory(id)
 	active = true
 	G.flashback = true
 	G.memories_seen[id] = true
@@ -43,7 +43,7 @@ func start(id: String) -> void:
 	fade = 1.0
 	fade_dir = -1.0
 	G.hud.flashback_begin(fb["title"], fb["when"])
-	G.sfx.set_music("title")
+	G.sfx.set_music("memory")
 	G.sfx.set_ambient("night" if dark > 0.3 else "birds")
 	_next_beat()
 
@@ -161,6 +161,9 @@ func finish() -> void:
 	G.flood = saved["flood"]
 	G.hud.flashback_end()
 	phase = ""
+	G.unlock("first_memory")
+	if G.memories_seen.size() >= Data.memory_count():
+		G.unlock("memories_all")
 
 
 func _process(_d: float) -> void:

@@ -1,6 +1,19 @@
 class_name Data
 ## Story data: areas, memories, and every voice the creature can carry.
 
+
+static func memory(id: String) -> Dictionary:
+	return FLASHBACKS[id] if FLASHBACKS.has(id) else MORE_FLASHBACKS.get(id, {})
+
+
+static func has_memory(id: String) -> bool:
+	return FLASHBACKS.has(id) or MORE_FLASHBACKS.has(id)
+
+
+static func memory_count() -> int:
+	return FLASHBACKS.size() + MORE_FLASHBACKS.size()
+
+
 const ZONES := [
 	{"n": "I", "name": "The Woodpeckers", "place": "Enfield · October 1938", "x0": 0, "x1": 90, "bg": "enfield",
 	 "type": "R", "ab": "axe", "noun": "woodcutters in red flannel",
@@ -35,12 +48,12 @@ const MEMS := {
 		"how": "Press E beside granite to set a charge. There was granite in the caves under Enfield."},
 }
 
-const TYPE_ROW := {"R": 0, "B": 1, "K": 2, "E": 3, "G": 4, "P": 5}
+const TYPE_ROW := {"R": 0, "B": 1, "K": 2, "E": 3, "G": 4, "P": 5, "U": 6, "M": 7}
 const LABEL := {"R": "the woodcutter", "B": "the grave digger", "K": "the surveyor", "E": "the engineer",
-	"G": "the warden", "P": "the townsperson", "D": "the deer", "S": "the sheep"}
+	"G": "the warden", "P": "the townsperson", "U": "the burner", "M": "the foreman", "D": "the deer", "S": "the sheep", "H": "the tracker dog"}
 
 const VOICES := {
-	"R": [["Amos Haskell, woodcutter", "They pay forty cents an hour to cut down my own father's sugar maples."],
+	"R": [["Abner Pratt, woodcutter", "Saw them low, so the stumps don't snag the boats."],
 		["Lyman Cooke, woodcutter", "Cut toward the hinge. Let the weight do the work."],
 		["Ezra Pratt, woodcutter", "Burn the brush, stack the logs, leave nothing that floats."],
 		["Walt Doane, woodcutter", "My boy asked where the birds will go. I told him Belchertown."],
@@ -55,7 +68,7 @@ const VOICES := {
 		["Asa Thorne, surveyor", "The ground lies. Shoot it twice."],
 		["Ned Kittredge, surveyor", "There are stone walls on the old maps that aren't anywhere you can stand."],
 		["Frank Lovell, surveyor", "From the hilltop you can see the whole of it. Four towns in one bowl."]],
-	"E": [["Harold Pike, engineer", "Granite breaks along its own grain. You only have to find it."],
+	"E": [["Ray Collette, engineer", "We test the concrete with a hammer. It rings true, or it doesn't."],
 		["Theo Bancroft, engineer", "The dam is earth. The core is concrete. The rest is arithmetic."],
 		["Gus Ferrante, engineer", "Boston drinks what we build. Boston never asks where it came from."],
 		["Lew Mathers, engineer", "Three charges and the hill is gravel."],
@@ -115,6 +128,8 @@ const DEAD := {
 const NAMED := {
 	"marion": ["Marion Haskell, Enfield", "We danced at the town hall until midnight. Then they turned the lights off on us."],
 	"ballou": ["C. R. Ballou, surveyor", "Elevation five-thirty. Everything below this line is lake."],
+	"amos": ["Amos Haskell, woodcutter", "They pay forty cents an hour to cut down my own father's sugar maples."],
+	"pike_e": ["Harold Pike, engineer", "Granite breaks along its own grain. You only have to find it."],
 }
 
 ## Playable memories. Each opens when its grave is kept or its person is taken.
@@ -166,4 +181,131 @@ const ENDINGS := {
 		"body": "In 1946 the reservoir reaches full pool and the water runs east through the aqueducts to the city. In Dorchester a man wakes humming a hymn from a meetinghouse that is now under the water. Children in the South End draw stone walls they have never seen. A woman in Back Bay sets a saucer of milk beside the kitchen tap and cannot say why."},
 	"hunger": {"title": "Boston Drinks",
 		"body": "In 1946 the reservoir reaches full pool and the water runs east through the aqueducts to the city. It tastes faintly of iron. Nobody in Boston dreams of the valley. For a while nobody in Boston dreams at all. There is a great deal of you now, and very little of it remembers anything."},
+}
+
+
+## Burners: brush-clearing crews with kerosene flamethrowers.
+const BURNER_VOICES := [
+	["Ike Moran, burner", "Brush, stumps, sheds, whatever's left. If it burns, it goes."],
+	["Fred Leclair, burner", "Keep the wind at your back and the wand low."],
+	["Sam Purdy, burner", "Kerosene and a match. That's all a town is, in the end."],
+	["Carl Tefft, burner", "I burned my own barn Tuesday. They paid me for the day."],
+	["Ollie Bates, burner", "Smoke over Enfield every morning. Like the whole valley's a chimney."],
+]
+
+## Root Hearts: the valley's buried hearts. Each one makes the creature permanently stronger.
+const UPGRADES := {
+	"long_reach": {"title": "Long Reach", "how": "Your flung tentacles reach a third further."},
+	"wet_bark": {"title": "Wet Bark", "how": "Fire takes hold of you half as often."},
+	"quick_tendons": {"title": "Quick Tendons", "how": "You can fling again twice as fast."},
+	"iron_gut": {"title": "Iron Gut", "how": "Every person you take gives you one extra mass."},
+	"regrowth": {"title": "Regrowth", "how": "Below 6 mass, you slowly grow back on your own."},
+	"old_blood": {"title": "Old Blood", "how": "You move through soft earth and water much faster."},
+}
+
+## Bosses.
+const BOSSES := {
+	"foreman": {"title": "The Foreman", "sub": "Walt Bemis, clearing foreman", "hp": 6,
+		"hint": "Get behind him and tear at his tanks. He turns slowly.",
+		"name": "Walt Bemis, clearing foreman", "line": "Burn it to the ground and then burn the ground.", "heart": "wet_bark"},
+	"shovel": {"title": "The Steam Shovel", "sub": "Marion Model 37, Metropolitan District Commission", "hp": 3,
+		"hint": "Tear out its three cables. Stay clear of the bucket.",
+		"name": "Joe Dufresne, shovel operator", "line": "Forty yards an hour. Forty yards an hour, until there's no valley left.", "heart": "iron_gut"},
+}
+
+## Achievements, kept across playthroughs in user://achievements.json.
+const ACHIEVEMENTS := [
+	["first_blood", "First Blood", "Take your first person."],
+	["first_memory", "Something Always Drank It", "Live through your first memory."],
+	["axe", "Woodpecker", "Learn the Axe."],
+	["all_four", "Everything They Knew", "Learn all four memories of the living."],
+	["graves10", "Sexton", "Keep 10 of the dead."],
+	["graves_all", "Every Stone", "Keep all 36 of the dead."],
+	["frenzy5", "Frenzy", "Take five in a row, each within four seconds of the last."],
+	["chain", "Chain Reaction", "Make a burner's tank take someone else with it."],
+	["foreman", "Firewalker", "Defeat the Foreman."],
+	["shovel", "Heavy Machinery", "Defeat the Steam Shovel."],
+	["hearts_all", "The Valley's Heart", "Find all six Root Hearts."],
+	["memories_all", "Every Voice", "Live through all eight memories."],
+	["island", "Islander", "Open a grave on a hilltop the flood made into an island."],
+	["glutton", "Glutton", "Grow to 30 mass."],
+	["letters_all", "Archivist", "Read all eight papers left behind."],
+	["remember", "Say the Towns", "End the game remembering more than you hunger."],
+	["hunger", "Boston Drinks", "End the game hungering more than you remember."],
+]
+
+## The four newer memories.
+const MORE_FLASHBACKS := {
+	"amos": {"title": "Amos Haskell", "when": "Enfield · March 1912", "row": 0, "dark": 0.0,
+		"extras": [[0, 44, 1]],
+		"beats": [
+			{"at": 40, "row_from": 1, "say": ["Sugaring time. Father drilled the taps and I hung the buckets."],
+				"to": 48, "goal": "Hang the bucket on the big maple", "act": ["Drip, drip, drip. Forty gallons of sap for one of syrup."]},
+			{"say": ["That spring the sap from the big maple came out wrong."], "to": 42, "goal": "Look in the bucket",
+				"act": ["It ran red. Warm and red, like it came up from a long way down.", "Father poured it on the ground and told me not to tell Mother."]},
+		],
+		"end": "Amos Haskell cut down that same maple in 1938, at forty cents an hour."},
+	"clara": {"title": "Lucy Thayer", "when": "Greenwich burying ground · March 1891", "row": 5, "dark": 0.78,
+		"extras": [[1, 125, 1], [1, 128, 1], [4, 131, 1]],
+		"beats": [
+			{"at": 118, "row_from": 1, "say": ["Three of us had died of the consumption. Mother said Clara was the cause.", "She said Clara was coming home at night."],
+				"to": 124, "goal": "Follow the lanterns", "act": ["They dug her up in the dark. She looked like she was sleeping."]},
+			{"say": ["The doctor took out her heart."], "to": 129, "goal": "Go to the fire",
+				"act": ["They burned it on a flat rock and made us breathe the smoke, to cure us.", "Under the rock, something breathed it too."]},
+		],
+		"end": "Clara Thayer came home anyway. Lucy heard her under the town for eleven years."},
+	"pike_e": {"title": "Harold Pike, engineer", "when": "The diversion tunnel · 1939", "row": 3, "dark": 0.62,
+		"beats": [
+			{"at": 274, "row_from": 100, "say": ["The diversion tunnel. Concrete ten feet thick, poured to carry the whole Swift River."],
+				"to": 288, "goal": "Inspect the lining", "act": ["Something knocked on the other side of the concrete. Three times."]},
+			{"say": ["Ten feet of concrete. Nothing is on the other side but rock."], "to": 280, "goal": "Knock back",
+				"act": ["I knocked three times.", "It knocked three times again. Closer. Then all along the tunnel, everywhere at once."]},
+		],
+		"end": "Harold Pike signed off on the lining that afternoon. He asked to be moved to the Boston office."},
+	"phebe": {"title": "Phebe Ellis", "when": "Prescott · August 1840", "row": 5, "dark": 0.55,
+		"beats": [
+			{"at": 364, "row_from": 80, "say": ["Prescott was the smallest town. We had the most sky."],
+				"to": 374, "goal": "Lie down in the long grass", "act": ["I counted the stars until the ground lit up under me, faint as a coal."]},
+			{"say": ["All across the valley floor, the same faint light. Like a city seen from a long way off."], "to": 366, "goal": "Run home",
+				"act": ["Mother said it was foxfire. Mother said a lot of things."]},
+		],
+		"end": "A hundred years later, a city would drink from this field."},
+}
+
+
+## Shown over black before you wake, one line at a time.
+const INTRO := [
+	"In 1927 the Commonwealth of Massachusetts decided that Boston needed more water.",
+	"The water would come from the Swift River Valley: four towns, Enfield, Greenwich, Dana and Prescott, and some twenty-five hundred people.",
+	"On April 28, 1938, the four towns ceased to exist. The houses were sold or burned. The trees were cut. Seven thousand graves were dug up and moved.",
+	"No one asked what was underneath.",
+]
+
+## The Swift River Herald, a weekly paper, as each town falls. (A fictional paper.)
+const NEWS := [
+	"SWIFT RIVER HERALD · OCT. 1938 — CLEARING CREWS REACH ENFIELD; \"NOT A TREE WILL STAND,\" SAYS COMMISSION",
+	"SWIFT RIVER HERALD · NOV. 1938 — GREENWICH DEAD TO BE REINTERRED AT QUABBIN PARK; FAMILIES MAY ATTEND",
+	"SWIFT RIVER HERALD · APR. 1939 — SURVEYORS FLAG 530-FOOT LINE ACROSS DANA COMMON",
+	"SWIFT RIVER HERALD · 1939 — WINSOR DAM RISES; DIVERSION TUNNEL CARRIES WHOLE RIVER",
+	"SWIFT RIVER HERALD · LAST EDITION — GATES CLOSED. THE VALLEY BEGINS TO FILL.",
+]
+
+## Papers left behind. Each one is a page you can read.
+const LETTERS := {
+	"notice": {"title": "Notice to vacate", "from": "Nailed to the Rich farm door",
+		"body": "COMMONWEALTH OF MASSACHUSETTS · METROPOLITAN DISTRICT WATER SUPPLY COMMISSION\n\nThe premises described below having been taken by eminent domain for the purposes of an additional water supply, the occupants are hereby notified to vacate on or before the first day of May, 1938. Buildings remaining after that date will be removed or burned.\n\nSomeone has written underneath, in pencil: Mother says leave the milk out one more night. For the spring."},
+	"diary": {"title": "Marion Haskell's diary", "from": "Enfield town hall cellar",
+		"body": "April 27. The Farewell Ball. Everyone came, even the Fays from Prescott who never come to anything. The band played until midnight and then the state turned the lights off on us.\n\nIn the dark the floor moved. I felt it through my good shoes. Not shaking. Breathing.\n\nApril 28. Enfield is gone this morning. It is a line in a ledger now. I went back for my gloves and the cellar door was warm."},
+	"sermon": {"title": "The last sermon", "from": "Greenwich church crypt",
+		"body": "Notes for the last service, in Rev. Pierce's successor's hand:\n\n\"For they shall be as the waters that are poured out.\" Speak of the valley as a gift returned. Do not speak of the north corner. Do not speak of the sexton's book.\n\nRemind them: the dead will be moved with dignity, each to a numbered box, each box to Quabbin Park.\n\nAsk them not to count the boxes that came up light."},
+	"ledger": {"title": "Removal ledger, Greenwich", "from": "A cave under the cemetery rise",
+		"body": "Lot 112. Lyon, Benjamin. Box 2214. Remains complete.\nLot 113. Lyon, Lydia. Box 2215. Remains complete.\nLot 114. Shaw, Josiah. Box 2216. Remains — roots only.\nLot 115. Shaw, Patience. Box 2217. Remains — roots only.\nLot 116. Stone, Eli. Box 2218. Remains — roots only. Roots warm.\n\nForeman's note: Stop writing \"roots warm\" in the book. — W.B."},
+	"survey": {"title": "C. R. Ballou's field book", "from": "The mill race under Dana",
+		"body": "Sta. 41+00. El. 530.0. Flag.\nSta. 42+00. El. 530.0. Flag.\nSta. 43+00. 1855 map shows stone wall running N into hill. No wall found. Ledge.\nLedge warm to touch. Ledge gave under hand.\nMoved line 40 ft uphill.\n\nIn the margin, very small: It knows where the water will stop. It is waiting for the water."},
+	"telegram": {"title": "Telegram", "from": "The works office",
+		"body": "WESTERN UNION\n\nTO: CHIEF ENGINEER, WINSOR DAM\nBOSTON RESERVOIRS AT FORTY PERCENT STOP CITY CANNOT WAIT ANOTHER SUMMER STOP CLOSE GATES BY SPRING STOP DISREGARD REPORTS FROM DIVERSION TUNNEL STOP DISREGARD REPORTS FROM GREENWICH BURYING GROUND STOP WATER IS WATER STOP"},
+	"child": {"title": "A letter, never sent", "from": "The bone room",
+		"body": "Dear Ruthie,\n\nWe are moving to Belchertown on Tuesday. Papa says the whole valley is going to be a lake and the fish will swim in my bedroom.\n\nI found a warm place under the hill. I go there when I am sad. Something hums there, like Mama used to. I am going to leave it my good marble so it does not forget me.\n\nYour friend, E."},
+	"last": {"title": "To whoever lives in the city", "from": "Drowned Prescott",
+		"body": "To whoever lives in the city now,\n\nWhen you turn the tap, think of us. There were four towns here. We had a church in each one, and a dance on Saturdays, and a spring that was always sweet.\n\nThe water will remember us even if you don't. Water always remembers where it has been.\n\nPhebe Ellis's granddaughter, the last one out of Prescott."},
 }

@@ -59,6 +59,26 @@ var fb_prompt: Label
 var fb_card_t := 0.0
 var region_lbl: Label
 var region_t := 0.0
+var boss_box: VBoxContainer
+var boss_title: Label
+var boss_back: ColorRect
+var boss_fill: ColorRect
+var frenzy_lbl: Label
+var frenzy_t := 0.0
+var ach_box: PanelContainer
+var ach_title: Label
+var ach_desc: Label
+var ach_t := 0.0
+var prog_lbl: Label
+var pause_ach: Label
+var letter_scr: Control
+var letter_title: Label
+var letter_from: Label
+var letter_body: Label
+var intro_scr: Control
+var intro_lbl: Label
+var intro_lines: Array = []
+var intro_t := 0.0
 
 
 func build() -> void:
@@ -164,7 +184,41 @@ func build() -> void:
 	region_lbl.custom_minimum_size = Vector2(800, 0)
 	region_lbl.modulate.a = 0.0
 	game_ui.add_child(region_lbl)
+	boss_box = VBoxContainer.new()
+	boss_box.custom_minimum_size = Vector2(560, 0)
+	boss_box.visible = false
+	game_ui.add_child(boss_box)
+	boss_title = _center(_label("", serif, 26, BONE))
+	boss_title.custom_minimum_size = Vector2(560, 0)
+	boss_box.add_child(boss_title)
+	boss_back = ColorRect.new()
+	boss_back.color = Color(0.1, 0.02, 0.05, 0.85)
+	boss_back.custom_minimum_size = Vector2(560, 12)
+	boss_box.add_child(boss_back)
+	boss_fill = ColorRect.new()
+	boss_fill.color = Color("c42a3f")
+	boss_back.add_child(boss_fill)
+	frenzy_lbl = _center(_label("", serif_i, 48, Color("ff6a5a")))
+	frenzy_lbl.custom_minimum_size = Vector2(500, 0)
+	frenzy_lbl.modulate.a = 0.0
+	game_ui.add_child(frenzy_lbl)
+	ach_box = PanelContainer.new()
+	ach_box.add_theme_stylebox_override("panel", _box(Color(0.05, 0.04, 0.02, 0.92), GOLD, 16, 10))
+	var av := VBoxContainer.new()
+	ach_title = _label("", mono, 15, GOLD)
+	ach_desc = _label("", serif_i, 16, BONE)
+	av.add_child(ach_title)
+	av.add_child(ach_desc)
+	ach_box.add_child(av)
+	ach_box.modulate.a = 0.0
+	add_child(ach_box)
+	prog_lbl = _label("", mono, 13, DIM)
+	prog_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	prog_lbl.custom_minimum_size = Vector2(270, 0)
+	bal_box.add_child(prog_lbl)
 	_build_flashback()
+	_build_letter()
+	_build_intro()
 	_build_title()
 	_build_ending()
 	_build_chorus()
@@ -292,6 +346,103 @@ func flashback_end() -> void:
 	game_ui.visible = true
 
 
+func _build_letter() -> void:
+	letter_scr = _screen(0.7)
+	var pc := PanelContainer.new()
+	pc.name = "v"
+	pc.add_theme_stylebox_override("panel", _box(Color("efe5cc"), Color("6a5a40"), 40, 32))
+	letter_scr.add_child(pc)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	pc.add_child(v)
+	letter_from = _label("", mono, 13, Color("7a6040"))
+	letter_title = _label("", serif, 36, Color("2a2018"))
+	letter_body = _label("", serif, 20, Color("2a2018"), true)
+	letter_body.custom_minimum_size = Vector2(720, 0)
+	var close := _label("SPACE / ESC  put it back", mono, 13, Color("7a6040"))
+	for l in [letter_from, letter_title, letter_body, close]:
+		l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
+		v.add_child(l)
+
+
+func show_letter(title: String, from: String, body: String) -> void:
+	letter_from.text = from.to_upper()
+	letter_title.text = title
+	letter_body.text = body
+	letter_scr.visible = true
+	_layout()
+
+
+func close_letter() -> void:
+	letter_scr.visible = false
+
+
+func letter_open() -> bool:
+	return letter_scr != null and letter_scr.visible
+
+
+func _build_intro() -> void:
+	intro_scr = _screen(1.0)
+	intro_lbl = _center(_label("", serif_i, 30, BONE, true))
+	intro_lbl.custom_minimum_size = Vector2(900, 0)
+	intro_scr.add_child(intro_lbl)
+	var skip := _label("SPACE  continue", mono, 13, DIM)
+	skip.name = "skip"
+	intro_scr.add_child(skip)
+
+
+func play_intro(lines: Array) -> void:
+	intro_lines = lines.duplicate()
+	intro_scr.visible = true
+	advance_intro()
+
+
+func advance_intro() -> void:
+	if intro_lines.is_empty():
+		skip_intro()
+		return
+	intro_lbl.text = intro_lines.pop_front()
+	intro_t = 6.0
+	intro_lbl.modulate.a = 0.0
+	G.sfx.play("chime", 0.0)
+	_layout()
+
+
+func skip_intro() -> void:
+	intro_lines.clear()
+	if intro_scr.visible:
+		intro_scr.visible = false
+		G.paused = false
+
+
+func intro_open() -> bool:
+	return intro_scr != null and intro_scr.visible
+
+
+func boss_bar(title: String, hp: int, mx: int) -> void:
+	boss_box.visible = title != ""
+	if title != "":
+		boss_title.text = title
+		boss_fill.size = Vector2(560.0 * maxf(0.0, float(hp)) / maxf(1.0, float(mx)), 12)
+
+
+func frenzy(n: int) -> void:
+	frenzy_lbl.text = "FRENZY ×%d" % n + ("   +1 mass" if n >= 3 else "")
+	frenzy_t = 2.2
+	frenzy_lbl.scale = Vector2.ONE * 1.25
+
+
+func achievement(title: String, desc: String) -> void:
+	ach_title.text = "ACHIEVEMENT  ·  " + title.to_upper()
+	ach_desc.text = desc
+	ach_t = 4.5
+	G.sfx.play("chime", 0.0)
+
+
+func progress(mem: int, mem_total: int, hearts: int, hearts_total: int, papers: int, papers_total: int) -> void:
+	prog_lbl.text = "MEMORIES %d/%d · HEARTS %d/%d · PAPERS %d/%d" % [mem, mem_total, hearts, hearts_total, papers, papers_total]
+
+
 func show_region(name: String) -> void:
 	region_lbl.text = "—  " + name.to_upper() + "  —"
 	region_t = 3.5
@@ -370,8 +521,12 @@ func _build_pause() -> void:
 			"Map  Tab / M        Chorus  C        Sound  N        Resume  Esc / P",
 			"",
 			"Rotten boards give way under 10 mass or more. Crawlways fit 6 or less.",
-			"Taken counts the living you eat. Kept counts the graves you open. Animals count for neither."]:
+			"Taken counts the living you eat. Kept counts the graves you open. Animals count for neither.",
+			"Fling  Shift / right-click / LB. Take three in a row quickly for a FRENZY."]:
 		v.add_child(_label(line, mono, 16, BONE if line != "" else DIM))
+	pause_ach = _label("", mono, 14, GOLD, true)
+	pause_ach.custom_minimum_size = Vector2(900, 0)
+	v.add_child(pause_ach)
 
 
 func _layout() -> void:
@@ -383,6 +538,10 @@ func _layout() -> void:
 	hint_panel.position = Vector2((s.x - hint_panel.get_combined_minimum_size().x) * 0.5, s.y - 120)
 	card_box.position = Vector2((s.x - 700) * 0.5, s.y * 0.2)
 	region_lbl.position = Vector2((s.x - 800) * 0.5, s.y * 0.13)
+	boss_box.position = Vector2((s.x - 560) * 0.5, s.y * 0.19)
+	frenzy_lbl.position = Vector2((s.x - 500) * 0.5, s.y * 0.3)
+	frenzy_lbl.pivot_offset = Vector2(250, 30)
+	ach_box.position = Vector2(s.x - ach_box.get_combined_minimum_size().x - 28, s.y * 0.2)
 	if fb_ui != null:
 		var head: Control = fb_ui.get_node("head")
 		head.position = Vector2((s.x - 900) * 0.5, s.y * 0.1)
@@ -391,10 +550,13 @@ func _layout() -> void:
 		fb_prompt.position = Vector2((s.x - 400) * 0.5, s.y - 70)
 	toast_lbl.size = Vector2(800, 0)
 	toast_lbl.position = Vector2((s.x - 800) * 0.5, s.y - 178)
-	for scr in [title_scr, ending_scr, pause_scr]:
+	for scr in [title_scr, ending_scr, pause_scr, letter_scr]:
 		var v: Control = scr.get_node("v")
 		var m := v.get_combined_minimum_size()
 		v.position = Vector2(maxf(40.0, s.x * 0.09), maxf(30.0, (s.y - m.y) * 0.5))
+	if intro_scr != null:
+		intro_lbl.position = Vector2((s.x - 900) * 0.5, s.y * 0.42)
+		intro_scr.get_node("skip").position = Vector2(28, s.y - 40)
 	var sc: ScrollContainer = chorus_scr.get_node("sc")
 	sc.position = Vector2(maxf(40.0, s.x * 0.09), 40)
 	sc.size = Vector2(minf(880.0, s.x - 80.0), s.y - 80)
@@ -412,6 +574,7 @@ func show_title(has_save: bool) -> void:
 func on_new_game() -> void:
 	title_scr.visible = false
 	ending_scr.visible = false
+	letter_scr.visible = false
 	chorus_scr.visible = false
 	pause_scr.visible = false
 	map_scr.visible = false
@@ -443,6 +606,12 @@ func toggle_overlay(which: String) -> void:
 	scr.visible = open
 	if which == "chorus" and open:
 		_fill_chorus()
+	if which == "pause" and open:
+		var got := []
+		for a in Data.ACHIEVEMENTS:
+			if G.ach.has(a[0]):
+				got.append(a[1])
+		pause_ach.text = "ACHIEVEMENTS %d / %d    %s" % [got.size(), Data.ACHIEVEMENTS.size(), " · ".join(got)]
 	G.paused = open
 	_layout()
 
@@ -543,6 +712,16 @@ func _process(delta: float) -> void:
 	toast_t = maxf(0.0, toast_t - delta)
 	card_box.modulate.a = clampf(card_t / 0.8, 0.0, 1.0) if card_t < 6.0 else clampf((6.5 - card_t) / 0.5, 0.0, 1.0)
 	toast_lbl.modulate.a = clampf(toast_t / 0.6, 0.0, 1.0)
+	if intro_open():
+		intro_t -= delta
+		intro_lbl.modulate.a = clampf((6.0 - intro_t) / 1.0, 0.0, 1.0) * clampf(intro_t / 0.8, 0.0, 1.0)
+		if intro_t <= 0.0:
+			advance_intro()
+	frenzy_t = maxf(0.0, frenzy_t - delta)
+	frenzy_lbl.modulate.a = clampf(frenzy_t / 0.5, 0.0, 1.0)
+	frenzy_lbl.scale = frenzy_lbl.scale.lerp(Vector2.ONE, minf(1.0, delta * 8.0))
+	ach_t = maxf(0.0, ach_t - delta)
+	ach_box.modulate.a = clampf(ach_t / 0.6, 0.0, 1.0)
 	region_t = maxf(0.0, region_t - delta)
 	region_lbl.modulate.a = clampf(region_t / 0.8, 0.0, 1.0) if region_t < 2.7 else clampf((3.5 - region_t) / 0.6, 0.0, 1.0)
 	fb_card_t = maxf(0.0, fb_card_t - delta)

@@ -46,6 +46,23 @@ godot --path .
   the 530-foot line in 1939.
 - **The valley changes.** Once the woodpeckers have taught you the axe, Enfield's maples are
   stumps and their brush fires burn. Fire hurts.
+- **Enemies.** Woodcutters swing axes. Engineers throw dynamite. Wardens shoot. **Burners** carry
+  kerosene flamethrowers: their fire hurts, catches in timber and rotten boards and spreads,
+  so a burner can open a timber jam for you. Take a burner and his tank bursts, taking anyone
+  close with it. **Tracker dogs** smell you even under the earth, bay to bring the crews, and bite.
+- **Bosses.** *The Foreman* in the Enfield sawmill is a wall of fire from the front: get behind
+  him and tear at his tanks while he slowly turns. *The Steam Shovel* in the spillway cut sweeps
+  and slams its bucket: tear out its three cables, then take the operator from the wreck.
+  Each leaves a Root Heart.
+- **Root Hearts.** Six of them, hidden or guarded. Each is a permanent upgrade: Long Reach,
+  Wet Bark (fire resistance), Quick Tendons (faster flings), Iron Gut (more mass per person),
+  Regrowth, and Old Blood (fast through earth and water).
+- **Eight memories** to live through and **eight papers** to read: an eviction notice,
+  Marion's diary, the last sermon, the grave-removal ledger, Ballou's field book, a telegram
+  from Boston, a child's letter, and a last letter from Prescott.
+- **Frenzy.** Take people in quick succession for a combo; from the third, each one gives extra mass.
+- **Achievements** (17) are kept across playthroughs and listed on the pause screen. The ending
+  screen shows your time, deaths and how much of the valley you found.
 - **The flood.** Drop into the basin and the gates close. The whole valley fills to
   530 feet, and three sheer hilltops become islands you can finally reach.
 - **Taken and kept.** Taking a person counts as taken. Opening a grave counts as kept.
@@ -68,6 +85,7 @@ scripts/hud.gd          interface and screens; map_view.gd draws the map
 scripts/bg.gd           parallax backdrops per town
 scripts/data.gd         story text: towns, memories, every voice, the playable memories
 scripts/flashback.gd    plays a memory as a person from the valley's past
+scripts/boss.gd         the Foreman and the Steam Shovel
 scripts/view.gdshader   sepia, lantern light and cave darkness over the game view
 data/world.txt          the map, one character per 16px tile (generated)
 data/entities.json      people, graves, springs, cellar holes (generated)

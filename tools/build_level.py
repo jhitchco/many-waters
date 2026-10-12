@@ -138,8 +138,10 @@ def build():
     # town hall cellar (heavy)
     carve(50, 63, 60, 67); fill(52, 60, 57, 62, 'b')
     # the sawmill: timber walls (Axe)
-    fill(70, 52, 82, 59, 'w'); carve(72, 54, 80, 59)
-    fill(72, 51, 80, 51, '#')
+    fill(66, 48, 84, 59, 'w'); carve(68, 50, 82, 59)    # the Foreman's arena
+    fill(66, 47, 84, 47, '#')
+    # a niche above the Under-Valley's ceiling, reached by flinging (Root Heart)
+    carve(66, 86, 67, 91); carve(68, 86, 71, 88)
     # Swift River caves, west half sealed by granite at both ends (Charge)
     carve(64, 76, 84, 84)
     fill(62, 77, 63, 83, 'g')
@@ -191,7 +193,7 @@ def build():
     carve(298, 66, 300, 99)                            # shaft up into the spillway cut
     # the spillway cut: a chasm across the works, crossed by flinging
     carve(284, 60, 312, 76)
-    pillar(292, 67, 76, 2); pillar(304, 64, 76, 2)
+    pillar(304, 66, 76, 2)                             # the steam shovel works from the west end
     fill(260, 60, 266, 61, 'b'); carve(259, 62, 267, 67)       # trestle pit (heavy)
     mound(316, 330, 44, 1)                             # the earthen dam rising
     fill(322, 44, 323, 59, 'c')                        # its concrete core
@@ -207,6 +209,7 @@ def build():
     carve(46, 118, 196, 122)
     pillar(90, 118, 119, 2); pillar(120, 121, 122, 3)
     fill(168, 118, 175, 121, '#')                                         # a crawlway along the floor, row 122
+    fill(124, 123, 125, 123, 'f'); carve(121, 124, 128, 128)              # a sealed room under the road (Root Heart)
 
     # ---------------- regions (named places)
     for args in (("The lair", 4, 110, 30, 124), ("The Under-Valley", 8, 90, 86, 109), ("The deep road", 44, 110, 198, 124),
@@ -221,15 +224,21 @@ def build():
         region(*args)
 
     # ---------------- people and animals
-    for x in (8, 16, 46, 64, 74, 78): ent('R', x)
-    ent('P', 54, id='marion'); ent('P', 66)
-    for x in (12, 62, 132): ent('D', x)
+    for x in (8, 16, 38, 44, 59): ent('R', x)
+    ent('R', 48, id='amos')
+    ent('P', 54, id='marion'); ent('P', 50)
+    for x in (4, 34, 132): ent('D', x)
+    for x in (20, 96, 150, 272, 340): ent('U', x)                     # burners
+    for x in (100, 200, 330): ent('H', x)                             # tracker dogs
+    ent('M', 75, 50)                                                  # the Foreman
+    ent('Z', 289, 61)                                                 # the steam shovel
     for x in (96, 124, 134, 146, 158): ent('B', x)
     ent('P', 100)
     for x in (192, 200, 218, 236, 250): ent('K', x, id='ballou' if x == 236 else None)
     ent('P', 196); ent('P', 246)
     for x in (226, 258): ent('S', x)
-    for x in (276, 282, 316, 326, 336): ent('E', x)
+    for x in (276, 316, 326, 336): ent('E', x)
+    ent('E', 282, id='pike_e')
     for x in (278, 314, 334): ent('G', x)
     ent('G', 401, 40); ent('G', 407, 40)
     for e in ents:
@@ -242,15 +251,15 @@ def build():
         ('cutler_j', 68, 77), ('cutler_m', 80, 77),                    # Swift west (Charge)
         ('ward_l', 52, 64), ('ward_o', 59, 64),                        # town hall cellar (heavy)
         ('stone', 6, 65), ('shaw', 14, 65),                            # Shaw crypt (Shovel)
-        ('gould', 30, 30),                                             # Quabbin Hill summit (flood)
+        ('gould', 31, 30),                                             # Quabbin Hill summit (flood)
         ('woods', 30, 53),                                             # hill cave
-        ('sawyer', 76, 55),                                            # inside the sawmill (Axe)
+        ('sawyer', 78, 50),                                            # inside the sawmill (Axe)
         ('clough', 100, 77),                                           # Swift east
         ('rand', 106, 63), ('pierce', 120, 63),                        # church crypt
         ('pease', 126, 1), ('lyon_b', 129, 1), ('lyon_l', 131, 1),     # cemetery
         ('tyler', 144, 40), ('eli', 140, 40),                          # cemetery rise top (Eli's memory)
         ('child', 162, 62),                                            # bone room (small)
-        ('bartlett', 162, 40),                                         # Mount Pomeroy (flood)
+        ('bartlett', 164, 40),                                         # Mount Pomeroy (flood)
         ('barlow_i', 184, 1), ('barlow_m', 262, 1),                    # Dana roadside
         ('ellis_n', 209, 40),                                          # Dana hill (flood)
         ('vaughn', 200, 97), ('alden', 230, 97),                       # mill race
@@ -268,8 +277,13 @@ def build():
     for x, frm in ((18, 113), (34, 99), (46, 75), (44, 1), (92, 1), (116, 63), (128, 1), (188, 1),
                    (214, 97), (244, 1), (274, 1), (296, 101), (340, 1), (365, 80)):
         ent('C', x, frm)                                               # cellar holes
-    for x, frm, after in ((40, 1, 'axe'), (68, 1, 'axe'), (84, 1, 'axe'), (286, 1, ''), (334, 1, ''), (326, 1, '')):
+    for x, frm, after in ((13, 1, 'axe'), (40, 1, 'axe'), (86, 1, 'axe'), (286, 1, ''), (334, 1, ''), (326, 1, '')):
         ent('F', x, frm, after=after)                                  # brush fires
+    for hid, x, frm in (('long_reach', 29, 30), ('quick_tendons', 70, 86), ('regrowth', 126, 124), ('old_blood', 161, 40)):
+        ent('Q', x, frm, id=hid)                                       # Root Hearts
+    for lid, x, frm in (('notice', 7, 1), ('diary', 56, 64), ('sermon', 110, 63), ('ledger', 145, 55), ('survey', 208, 97),
+                        ('telegram', 333, 1), ('child', 161, 62), ('last', 372, 80)):
+        ent('L', x, frm, id=lid)                                       # papers left behind
     ent('I', 404, 40)
     ents.append(dict(t='@', x=20, y=121))
 
@@ -293,7 +307,9 @@ def build():
     for x, frm in ((10, 113), (16, 113), (26, 113), (24, 101), (52, 101), (70, 101), (48, 119), (100, 119), (150, 119),
                    (36, 75), (56, 75), (70, 77), (98, 77), (196, 97), (240, 97), (212, 112)):
         dec('p:12', x, frm, 'front')
-    dec('p:13', 112, 63); dec('p:13', 216, 112); dec('p:13', 76, 55)
+    dec('p:13', 112, 63); dec('p:13', 216, 112); dec('p:13', 72, 50)
+    for x, frm in ((14, 113), (142, 40), (218, 112), (358, 80)):
+        dec('p:21', x, frm)                                            # memory stones
     for x in (4, 66, 98, 124): dec('p:9', x)
     for x in (182, 220, 252): dec('p:14', x)
     for x in (44, 60, 80): dec('p:8', x)
@@ -416,7 +432,7 @@ def progression(order=None, verbose=True):
             if 'charge' in cand: new.add('charge')
         else:
             new |= set(cand)
-        gr = {e['id'] for e in ents if e['t'] == 'T' and near(e, cells)}
+        gr = {e['id'] for e in ents if e['t'] in 'TQL' and near(e, cells)}
         log.append((sorted(ab), flood, sorted(gr - got)))
         got |= gr
         basin = any((x, y) in cells for x in range(BASIN_X0 + 1, 410) for y in range(90, BASIN_FLOOR))
@@ -429,7 +445,7 @@ def progression(order=None, verbose=True):
     cells, _, _ = explore(ab, True)
     intake = next(e for e in ents if e['t'] == 'I')
     ok_intake = any((intake['x'] + dx, intake['y'] - 1) in cells for dx in range(-4, 4))
-    missing = {e['id'] for e in ents if e['t'] == 'T'} - got
+    missing = {e['id'] for e in ents if e['t'] in 'TQL'} - got
     return log, ok_intake, missing, traps, ab
 
 
@@ -455,7 +471,7 @@ def preview():
             c = col[g[y][x]]
             if g[y][x] == '.' and y >= FLOOD_ROW: c = (24, 50, 70)
             im.putpixel((x, y), c)
-    mark = {'R': (220, 40, 40), 'B': (140, 90, 40), 'K': (210, 190, 120), 'E': (60, 100, 220), 'G': (60, 160, 60),
+    mark = {'U': (255, 160, 40), 'H': (160, 110, 60), 'M': (255, 0, 0), 'Z': (255, 255, 255), 'Q': (255, 0, 120), 'L': (255, 255, 255), 'R': (220, 40, 40), 'B': (140, 90, 40), 'K': (210, 190, 120), 'E': (60, 100, 220), 'G': (60, 160, 60),
             'P': (250, 250, 250), 'T': (255, 220, 80), 'W': (60, 220, 230), 'C': (255, 60, 160), 'I': (255, 255, 0),
             '@': (255, 0, 255), 'D': (200, 140, 90), 'S': (230, 230, 230), 'F': (255, 120, 0)}
     for e in ents:
@@ -484,7 +500,7 @@ def main():
     for a, flood, fresh in log:
         print(f"abilities={a or ['none']} flood={flood}: new graves {fresh}")
     print('intake reachable:', ok_intake)
-    print('unreachable graves:', sorted(missing) or 'none')
+    print('unreachable graves or hearts:', sorted(missing) or 'none')
     print('trap cells (reachable, no way back):', len(traps), sorted(traps)[:12])
     bad = not ok_intake or bool(missing) or bool(traps)
     cells, _, _ = explore(set(), False)

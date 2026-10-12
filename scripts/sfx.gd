@@ -3,9 +3,9 @@ extends Node
 ## the creature's slither and dig loops, a heartbeat when weak, and muffling underwater.
 
 const NAMES := ["squelch", "hurt", "bell", "crack", "boom", "shot", "splash", "chime", "tick", "gasp", "swing", "flood",
-	"unlock", "scream", "scream2", "bleat", "whisper", "splash_big", "heartbeat"]
+	"unlock", "scream", "scream2", "bleat", "whisper", "splash_big", "heartbeat", "bark", "flame", "snap", "roar", "howl", "gurgle", "paper", "sting"]
 const VOL := {"gasp": -10.0, "swing": -8.0, "tick": -6.0, "splash": -6.0, "shot": -4.0, "scream": -7.0, "scream2": -7.0,
-	"bleat": -8.0, "whisper": -6.0, "heartbeat": -4.0, "splash_big": -5.0}
+	"bleat": -8.0, "bark": -6.0, "flame": -6.0, "gurgle": -10.0, "paper": -4.0, "howl": -9.0, "roar": -2.0, "whisper": -6.0, "heartbeat": -4.0, "splash_big": -5.0}
 const MUSIC_DB := -9.0
 const AMB_DB := -13.0
 const FADE := 2.5
@@ -23,6 +23,10 @@ var amb_cur := 0
 var amb_name := ""
 var slither: AudioStreamPlayer
 var digging: AudioStreamPlayer
+var engine: AudioStreamPlayer
+var crackle: AudioStreamPlayer
+var engine_db := -60.0
+var crackle_db := -60.0
 var drone: AudioStreamPlayer
 var muffle: AudioEffectLowPassFilter
 var heart_t := 0.0
@@ -41,6 +45,8 @@ func _ready() -> void:
 		amb.append(_looper(-80.0))
 	slither = _looper(-80.0, "res://assets/sfx/slither.wav")
 	digging = _looper(-80.0, "res://assets/sfx/dig.wav")
+	engine = _looper(-80.0, "res://assets/sfx/engine.wav")
+	crackle = _looper(-80.0, "res://assets/sfx/crackle.wav")
 	drone = _looper(-20.0, "res://assets/sfx/drone.wav")
 	muffle = AudioEffectLowPassFilter.new()
 	muffle.cutoff_hz = 700.0
@@ -66,7 +72,7 @@ func _looper(db: float, path: String = "") -> AudioStreamPlayer:
 
 
 func start_drone() -> void:
-	for p in [drone, slither, digging]:
+	for p in [drone, slither, digging, engine, crackle]:
 		if not p.playing:
 			p.play()
 
@@ -124,6 +130,8 @@ func _process(delta: float) -> void:
 	slither.volume_db = move_toward(slither.volume_db, -60.0 if (not active or c.in_dirt or speed < 15.0) else -16.0 + minf(6.0, speed / 30.0), delta * 120.0)
 	slither.pitch_scale = 0.8 + minf(0.5, speed / 300.0) if active else 1.0
 	digging.volume_db = move_toward(digging.volume_db, -12.0 if (active and c.in_dirt and speed > 10.0) else -60.0, delta * 120.0)
+	engine.volume_db = move_toward(engine.volume_db, engine_db if active else -60.0, delta * 60.0)
+	crackle.volume_db = move_toward(crackle.volume_db, crackle_db if active else -60.0, delta * 60.0)
 	if active and wet != was_wet:
 		play("splash_big")
 	was_wet = wet

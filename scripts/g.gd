@@ -5,6 +5,7 @@ const TS := 16
 const HEAVY := 10            # mass at which rotten boards give way
 const CRAWL_MASS := 6        # largest mass that fits a one-tile crawlway
 const SAVE_PATH := "user://many_waters_save.json"
+const ACH_PATH := "user://achievements.json"
 
 var main: Node
 var world: Node2D
@@ -14,6 +15,7 @@ var fx: Node2D
 var hud: Control
 var cam: Camera2D
 var sfx: Node
+var boss: Node2D
 
 var ab := {}
 var counts := {}
@@ -33,6 +35,13 @@ var ended := false
 var shake := 0.0
 var flashback := false
 var memories_seen := {}
+var upgrades := {}
+var letters := {}
+var deaths := 0
+var combo := 0
+var last_take_t := -100.0
+var ach := {}               # every achievement ever earned, across playthroughs
+var run_ach: Array = []     # earned this playthrough
 
 ## Map geometry from data/meta.json (written by tools/build_level.py).
 var meta := {}
@@ -47,6 +56,9 @@ func _ready() -> void:
 	FLOOD_FULL_Y = float(meta["flood_row"]) * TS
 	FLOOD_START_Y = float(meta["flood_start_row"]) * TS
 	SURF_Y = float(meta["surf"]) * TS
+	var a = JSON.parse_string(FileAccess.get_file_as_string(ACH_PATH)) if FileAccess.file_exists(ACH_PATH) else null
+	if typeof(a) == TYPE_DICTIONARY:
+		ach = a
 
 
 func reset() -> void:
@@ -66,12 +78,38 @@ func reset() -> void:
 	shake = 0.0
 	flashback = false
 	memories_seen = {}
+	upgrades = {}
+	letters = {}
+	deaths = 0
+	combo = 0
+	last_take_t = -100.0
+	run_ach = []
 
 
 func add_voice(who: String, line: String, kind: String) -> void:
 	voices.append({"name": who, "line": line, "kind": kind})
 	if hud:
 		hud.voices_changed()
+
+
+## Earn an achievement. Returns true the first time it is ever earned.
+func unlock(id: String) -> bool:
+	if run_ach.has(id):
+		return false
+	run_ach.append(id)
+	var first := not ach.has(id)
+	ach[id] = true
+	var f := FileAccess.open(ACH_PATH, FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify(ach))
+	for a in Data.ACHIEVEMENTS:
+		if a[0] == id and hud:
+			hud.achievement(a[1], a[2])
+	return first
+
+
+func has_up(id: String) -> bool:
+	return upgrades.get(id, false)
 
 
 func zone_at(px: float) -> int:

@@ -69,7 +69,7 @@ func physics(delta: float) -> void:
 	var cl := near_cling(position, r + 8.0)
 	var spd := maxf(70.0, 130.0 - mass * 1.6)
 	if in_dirt:
-		spd *= 0.55
+		spd *= 0.95 if G.has_up("old_blood") else 0.55
 	if inp != Vector2.ZERO:
 		last_dir = inp.normalized()
 	if fling != null and not fling["whiff"]:
@@ -80,7 +80,7 @@ func physics(delta: float) -> void:
 			fling = null
 			momentum = 0.22
 	elif in_water:
-		spd *= 1.15
+		spd *= 1.5 if G.has_up("old_blood") else 1.15
 		vel = vel.lerp(inp * spd, minf(1.0, delta * 4.0))
 	elif momentum > 0.0:
 		vel = vel.lerp(inp * spd, minf(1.0, delta * 1.5))
@@ -234,7 +234,7 @@ func _update_anchors(inp: Vector2, cl: bool) -> void:
 
 ## How far a flung tentacle reaches. Bigger bodies reach further.
 func reach() -> float:
-	return minf(150.0, 90.0 + mass * 2.5)
+	return minf(150.0, 90.0 + mass * 2.5) * (1.33 if G.has_up("long_reach") else 1.0)
 
 
 ## Throw a tentacle along `dir` at the first rough surface in reach and pull the body to it.
@@ -259,7 +259,7 @@ func try_fling(dir: Vector2) -> void:
 		d += 3.0
 	if hit != null:
 		fling = {"p": hit, "t": 0.0, "whiff": false}
-		fling_cd = 0.3
+		fling_cd = 0.15 if G.has_up("quick_tendons") else 0.3
 		anchors.clear()
 		G.sfx.play("swing", 0.2)
 		G.fx.burst(hit, 4, [Color("8c1c34"), Color("4a0e24")], 30.0, 200.0, 1.0, 0.4)
@@ -267,7 +267,7 @@ func try_fling(dir: Vector2) -> void:
 		fling = {"p": position + dir * (r + reach() * 0.7), "t": 0.0, "whiff": true}
 		vel += dir * 170.0
 		momentum = 0.25
-		fling_cd = 0.5
+		fling_cd = 0.25 if G.has_up("quick_tendons") else 0.5
 		G.sfx.play("swing", 0.3)
 
 
@@ -348,7 +348,7 @@ func _tentacle(a: Vector2, b: Vector2, w: float, seed: float) -> void:
 
 
 func _draw() -> void:
-	if dead:
+	if dead or G.flashback:
 		return
 	var t := G.time
 	var rr := dr

@@ -271,6 +271,57 @@ def title():
     return tr.render(0.45, 3.4)
 
 
+def boss():
+    """Driving and dissonant: a kick on every beat, a galloping bass, fiddle stabs, an organ that won't resolve."""
+    tr = Track(64, 132)
+    for b in range(64):
+        tr.add(b, thud(0.4), 0.9)
+        if b % 4 == 3:
+            tr.add(b + 0.5, thud(0.3), 0.5)
+        if b % 2 == 1:
+            tr.add(b, clank(520 + 30 * (b % 5), 0.4), 0.18)
+    gallop = [('E2', 0.5), ('E2', 0.25), ('E2', 0.25), ('G2', 0.5), ('F2', 0.5)] * 32
+    tr.seq(bass, gallop, 0, 0.55, 0.9)
+    stabs = [('E5+B5', 1), (None, 1), ('F5+C6', 0.5), (None, 1.5), ('E5+B5', 1), (None, 1), ('G5+D6', 0.5), ('F5+C6', 0.5), (None, 1)]
+    b = 16.0
+    while b < 64:
+        b = tr.seq(fiddle, stabs, b, 0.32, 0.8)
+    for b0, c in ((0, 'E3+F3+B3'), (16, 'E3+G3+Bb3'), (32, 'D3+E3+F3+B3'), (48, 'C3+E3+F3+B3')):
+        for nmn in c.split('+'):
+            tr.add(b0, organ(midi(nm(nmn)), 15 * tr.spb), 0.2)
+    return tr.render(0.2, 1.6)
+
+
+def memory():
+    """A music box in a slow waltz, a little out of tune, as if wound long ago."""
+    tr = Track(72, 66)
+    def box(f, d):
+        a = bell(f * 2, min(d, 2.5)) * 0.7
+        p = pluck(f * 2, min(d, 1.5), 0.2) * 0.4
+        a[:p.size] += p[:a.size]
+        return a
+    mel = [('A4', 1), ('C5', 1), ('E5', 1), ('D5', 2), ('C5', 1), ('B4', 2), ('G4', 1), ('A4', 3),
+           ('E4', 1), ('A4', 1), ('C5', 1), ('B4', 2), ('A4', 1), ('G#4', 2), ('E4', 1), ('A4', 3),
+           ('C5', 1), ('E5', 1), ('A5', 1), ('G5', 2), ('E5', 1), ('F5', 2), ('D5', 1), ('E5', 3),
+           ('A4', 1), ('B4', 1), ('C5', 1), ('D5', 2), ('B4', 1), ('C5', 1), ('B4', 1), ('G#4', 1), ('A4', 6)]
+    tr.seq(box, mel, 0, 0.5, 1.0)
+    for i, c in enumerate(['A2', 'E2', 'A2', 'E2', 'A2', 'D2', 'E2', 'A2'] * 3):
+        if i * 3 < 72:
+            tr.add(i * 3, bass(midi(nm(c)), 3 * tr.spb), 0.25)
+    return tr.render(0.5, 3.5)
+
+
+def sting():
+    tr = Track(8, 70)
+    for nmn in ('D3', 'A3', 'D4', 'F#4', 'A4'):
+        tr.add(0, organ(midi(nm(nmn)), 6 * tr.spb), 0.4)
+        tr.add(0, choir(midi(nm(nmn)), 6 * tr.spb, 2), 0.12)
+    tr.add(0, bell(midi(nm('D4')), 5.0), 0.35)
+    tr.add(0, thud(0.6), 0.8)
+    x = tr.render(0.4, 2.5)
+    return x * np.minimum(1, np.linspace(6, 0, x.size))
+
+
 # ---------------------------------------------------------------- ambient beds (30 s loops)
 def loop_noise(d):
     return rng.uniform(-1, 1, int(SR * d))
@@ -405,10 +456,89 @@ def splash_big():
     return (lowpass(n, 4) * np.exp(-t * 4) + lowpass(n, 30) * np.exp(-t * 2) * 0.6) + np.sin(2 * np.pi * 90 * t) * np.exp(-t * 10) * 0.5
 
 
+def bark():
+    x = np.zeros(int(SR * 0.5))
+    for s0 in (0.0, 0.2):
+        t = np.arange(int(SR * 0.16)) / SR
+        f = 300 * (1 + 0.6 * np.exp(-t * 25))
+        w = sum(np.sin(2 * np.pi * np.cumsum(f * h) / SR) / h for h in range(1, 9))
+        w = w * np.exp(-t * 14) + lowpass(rng.uniform(-1, 1, t.size), 3) * np.exp(-t * 30) * 0.4
+        i = int(SR * s0)
+        x[i:i + t.size] += w
+    return x
+
+
+def flame():
+    n = rng.uniform(-1, 1, int(SR * 0.9))
+    t = np.arange(n.size) / SR
+    return (lowpass(n, 3) - lowpass(n, 40)) * np.minimum(1, t / 0.05) * np.exp(-t * 2.5) + lowpass(n, 60) * np.exp(-t * 3)
+
+
+def snap():
+    t = np.arange(int(SR * 0.7)) / SR
+    twang = sum(np.sin(2 * np.pi * f * t) * np.exp(-t * d) for f, d in ((180, 6), (412, 9), (931, 14)))
+    crack = (rng.uniform(-1, 1, t.size) - lowpass(rng.uniform(-1, 1, t.size), 4)) * np.exp(-t * 40)
+    return twang * 0.6 + crack
+
+
+def roar():
+    t = np.arange(int(SR * 1.4)) / SR
+    f0 = 70 * (1 + 0.25 * np.sin(np.pi * t / 1.4)) * (1 + 0.05 * np.sin(2 * np.pi * 23 * t))
+    ph = np.cumsum(f0) / SR
+    w = sum(np.sin(2 * np.pi * ph * h) * (1.0 / h) * (1.6 if 5 < h < 12 else 1.0) for h in range(1, 30))
+    w += lowpass(rng.uniform(-1, 1, t.size), 6) * 0.5
+    return w * adsr(t.size, 0.15, 0.5)
+
+
+def engine():
+    d = 2.0
+    t = np.arange(int(SR * d)) / SR
+    chug = np.zeros(t.size)
+    for s0 in np.arange(0, d, 0.25):
+        i = int(SR * s0)
+        n = int(SR * 0.18)
+        chug[i:i + n] += lowpass(rng.uniform(-1, 1, n), 12) * np.exp(-np.arange(n) / SR * 18)
+    return wrap(chug + np.sin(2 * np.pi * 42 * t) * 0.3 + lowpass(rng.uniform(-1, 1, t.size), 90) * 0.4, 0.2)
+
+
+def crackle():
+    d = 3.0
+    x = lowpass(rng.uniform(-1, 1, int(SR * d)), 50) * 0.5
+    for _ in range(90):
+        i = rng.integers(0, x.size - 300)
+        x[i:i + 200] += (rng.uniform(-1, 1, 200)) * np.exp(-np.arange(200) / 40) * rng.uniform(0.3, 1.0)
+    return wrap(x, 0.2)
+
+
+def howl():
+    t = np.arange(int(SR * 1.8)) / SR
+    f = 420 + 160 * np.sin(np.pi * np.minimum(1, t / 1.2)) - 120 * np.maximum(0, t - 1.2)
+    ph = np.cumsum(f) / SR
+    return sum(np.sin(2 * np.pi * ph * h) / h ** 1.5 for h in range(1, 6)) * adsr(t.size, 0.2, 0.5)
+
+
+def gurgle():
+    t = np.arange(int(SR * 0.8)) / SR
+    x = np.zeros(t.size)
+    for s0 in (0.0, 0.18, 0.31, 0.5):
+        n = int(SR * 0.12)
+        tt = np.arange(n) / SR
+        b = np.sin(2 * np.pi * (180 + 300 * tt / 0.12 + rng.uniform(-40, 40)) * tt) * np.sin(np.pi * tt / 0.12)
+        i = int(SR * s0)
+        x[i:i + n] += b * rng.uniform(0.5, 1.0)
+    return x + lowpass(rng.uniform(-1, 1, t.size), 20) * 0.2 * adsr(t.size, 0.05, 0.3)
+
+
+def paper():
+    n = rng.uniform(-1, 1, int(SR * 0.45))
+    t = np.arange(n.size) / SR
+    return (n - lowpass(n, 3)) * (0.3 + 0.7 * np.abs(np.sin(2 * np.pi * 7 * t))) * adsr(n.size, 0.02, 0.15)
+
+
 def main():
     m = os.path.join(ROOT, 'assets', 'music')
     for name, fn in (('enfield', enfield), ('greenwich', greenwich), ('dana', dana), ('works', works),
-                     ('basin', basin), ('cave', cave), ('title', title)):
+                     ('basin', basin), ('cave', cave), ('title', title), ('boss', boss), ('memory', memory)):
         save(os.path.join(m, name + '.wav'), fn(), 0.8)
         print('music', name)
     a = os.path.join(ROOT, 'assets', 'ambient')
@@ -427,6 +557,11 @@ def main():
     save(os.path.join(s, 'heartbeat.wav'), heartbeat(), 0.8)
     save(os.path.join(s, 'whisper.wav'), whisper(), 0.4)
     save(os.path.join(s, 'splash_big.wav'), splash_big(), 0.6)
+    save(os.path.join(s, 'bark.wav'), bark(), 0.6)
+    for name, fn, g in (('snap', snap, 0.7), ('roar', roar, 0.7), ('engine', engine, 0.6), ('crackle', crackle, 0.5),
+                        ('howl', howl, 0.5), ('gurgle', gurgle, 0.5), ('paper', paper, 0.5), ('sting', sting, 0.8)):
+        save(os.path.join(s, name + '.wav'), fn(), g)
+    save(os.path.join(s, 'flame.wav'), flame(), 0.6)
     print('ambient and effects done')
 
 

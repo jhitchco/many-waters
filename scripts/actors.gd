@@ -14,6 +14,10 @@ var decor_back: Array = []
 var decor_front: Array = []
 var projs: Array = []
 var fires: Array = []
+var hearts: Array = []
+var papers: Array = []
+var foreman_p := Vector2.ZERO
+var shovel_p := Vector2.ZERO
 var regions: Array = []
 var hover = null
 
@@ -33,18 +37,19 @@ func load_entities() -> void:
 	for k in dj:
 		var a: Array = dj[k]
 		decor_rects[k] = Rect2(a[0], a[1], a[2], a[3])
-	people.clear(); animals.clear(); graves.clear(); springs.clear(); cps.clear(); fires.clear()
+	people.clear(); animals.clear(); graves.clear(); springs.clear(); cps.clear(); fires.clear(); hearts.clear(); papers.clear()
 	regions = JSON.parse_string(FileAccess.get_file_as_string("res://data/regions.json"))
 	var pools := {}
 	for k in Data.VOICES:
 		pools[k] = Data.VOICES[k].duplicate()
+	pools["U"] = Data.BURNER_VOICES.duplicate()
 	var gi := 0
 	var ents = JSON.parse_string(FileAccess.get_file_as_string("res://data/entities.json"))
 	for e in ents:
 		var typ: String = e["t"]
 		var p := Vector2(int(e["x"]) * TS + 8, int(e["y"]) * TS)
 		match typ:
-			"R", "B", "K", "E", "G", "P":
+			"R", "B", "K", "E", "G", "P", "U":
 				var key: String = e.get("id", "")
 				var v: Array
 				if key != "" and Data.NAMED.has(key):
@@ -54,7 +59,7 @@ func load_entities() -> void:
 				people.append({"key": key, "t": typ, "p": p, "home": p.x, "vy": 0.0, "vx": 0.0, "dir": 1 if randf() < 0.5 else -1,
 					"state": "patrol", "alive": true, "cd": 1.0 + randf(), "anim": randf() * 6.0, "alert_t": 0.0,
 					"lost": 0.0, "swing": 0.0, "name": v[0], "line": v[1], "id": people.size()})
-			"D", "S":
+			"D", "S", "H":
 				animals.append({"t": typ, "p": p, "start": p, "home": p.x, "vy": 0.0, "vx": 0.0, "dir": 1, "alive": true,
 					"respawn": 0.0, "anim": randf() * 6.0, "scared": 0.0})
 			"T":
@@ -64,6 +69,14 @@ func load_entities() -> void:
 				gi += 1
 			"F":
 				fires.append({"p": p, "after": e.get("after", "")})
+			"Q":
+				hearts.append({"p": p, "id": e["id"], "taken": false})
+			"L":
+				papers.append({"p": p, "id": e["id"]})
+			"M":
+				foreman_p = p
+			"Z":
+				shovel_p = p
 			"W":
 				springs.append({"p": p})
 			"C":
@@ -121,6 +134,24 @@ func find_target(c: Vector2, reach: float):
 			bd = d
 	if best != null:
 		return best
+	for l in papers:
+		if G.letters.has(l["id"]):
+			continue
+		var lp: Vector2 = l["p"] + Vector2(0, -5)
+		var dl := lp.distance_to(c)
+		if dl < reach and dl < bd and _los(c, lp):
+			best = {"kind": "l", "ref": l, "t": 0.0}
+			bd = dl
+	for q in hearts:
+		if q["taken"]:
+			continue
+		var hp: Vector2 = q["p"] + Vector2(0, -10)
+		var d := hp.distance_to(c)
+		if d < reach and d < bd and _los(c, hp):
+			best = {"kind": "q", "ref": q, "t": 0.0}
+			bd = d
+	if best != null:
+		return best
 	for g in graves:
 		if g["opened"]:
 			continue
@@ -140,6 +171,13 @@ func physics(delta: float) -> void:
 	for a in animals:
 		_update_animal(a, c, delta)
 	_update_projs(c, delta)
+	var near_fire := 1.0e9
+	for f in fires:
+		if fire_lit(f):
+			near_fire = minf(near_fire, c.position.distance_to(f["p"]))
+	for i in G.world.burning.keys():
+		near_fire = minf(near_fire, c.position.distance_to(Vector2((i % G.world.W) * TS + 8, (i / G.world.W) * TS + 8)))
+	G.sfx.crackle_db = clampf(-6.0 - near_fire / 12.0, -60.0, -6.0)
 	for f in fires:
 		if not fire_lit(f):
 			continue
@@ -148,7 +186,7 @@ func physics(delta: float) -> void:
 		if randf() < 0.08:
 			G.fx.burst(f["p"] + Vector2(0, -10), 1, [Color(0.3, 0.28, 0.3, 0.6)], 12.0, -25.0, 2.0, 2.0)
 		if not c.dead and c.inv <= 0.0 and c.position.distance_to(f["p"] + Vector2(0, -6)) < c.r + 9.0:
-			G.main.hurt(1)
+			G.main.hurt(1, "fire")
 			c.vel += (c.position - f["p"]).normalized() * 160.0
 
 
@@ -243,6 +281,23 @@ func _update_person(h: Dictionary, c, delta: float) -> void:
 					h["cd"] = 1.6 + randf() * 0.4
 					h["swing"] = 0.25
 					_shoot(h, c)
+			"U":
+				h["dir"] = 1 if d.x >= 0 else -1
+				if absf(d.x) > 70.0:
+					want = h["dir"] * 26.0
+				elif absf(d.x) < 34.0:
+					want = -h["dir"] * 22.0          # keep the wand's length between you
+				if h.get("spray", 0.0) > 0.0:
+					h["spray"] -= delta
+					h["swing"] = 0.2
+					want = 0.0
+					var o: Vector2 = p + Vector2(h["dir"] * 9, -11)
+					var aim := clampf((c.position.y - o.y) / maxf(30.0, absf(d.x)), -0.6, 0.6)
+					flame(o, Vector2(h["dir"], aim + randf_range(-0.1, 0.1)).normalized() * randf_range(150, 190), 0.55)
+				elif h["cd"] <= 0.0 and sees and absf(d.x) < 110.0 and absf(d.y) < 50.0:
+					h["spray"] = 1.1
+					h["cd"] = 2.2
+					G.sfx.play("flame", 0.15)
 			_:
 				want = (-1.0 if d.x >= 0 else 1.0) * 40.0
 				h["dir"] = int(signf(want))
@@ -267,6 +322,9 @@ func _update_animal(a: Dictionary, c, delta: float) -> void:
 	var on_g := _ground(a, delta)
 	var d: Vector2 = c.position - a["p"]
 	var want := 0.0
+	if a["t"] == "H":
+		_update_dog(a, c, d, on_g, delta)
+		return
 	if not c.dead and not c.in_dirt and d.length() < 110.0:
 		a["scared"] = 2.0
 	a["scared"] = maxf(0.0, a["scared"] - delta)
@@ -281,6 +339,44 @@ func _update_animal(a: Dictionary, c, delta: float) -> void:
 		_walk(a, want, delta, a["scared"] <= 0.0)
 
 
+## Tracker dogs smell you even under the earth, bay to bring the crews, and bite.
+func _update_dog(a: Dictionary, c, d: Vector2, on_g: bool, delta: float) -> void:
+	a["cd"] = a.get("cd", 0.0) - delta
+	a["bark"] = a.get("bark", 0.0) - delta
+	var want := 0.0
+	var smells: bool = not c.dead and d.length() < 160.0 and absf(d.y) < 90.0
+	a["scared"] = 1.0 if smells else maxf(0.0, a["scared"] - delta)
+	if smells:
+		a["dir"] = 1 if d.x >= 0 else -1
+		if absf(d.x) > 10.0:
+			want = a["dir"] * 78.0
+		if a["bark"] <= 0.0:
+			if not a.get("howled", false):
+				a["howled"] = true
+				G.sfx.play("howl", 0.1)
+			a["bark"] = 1.4
+			G.sfx.play("bark", 0.15)
+			for h in people:
+				if h["alive"] and h["state"] == "patrol" and (h["p"] as Vector2).distance_to(a["p"]) < 220.0:
+					h["state"] = "alert"
+					h["alert_t"] = 1.0
+		if d.length() < c.r + 14.0 and a["cd"] <= 0.0:
+			a["cd"] = 1.0
+			G.main.hurt(1)
+	else:
+		if absf(a["p"].x - a["home"]) > TS * 4 and signf(a["p"].x - a["home"]) == a["dir"]:
+			a["dir"] = -a["dir"]
+		want = a["dir"] * 16.0
+	if on_g:
+		_walk(a, want, delta, not smells)
+
+
+## A gout of burning kerosene. Hurts the creature, sets timber alight, dies in water.
+func flame(o: Vector2, v: Vector2, life: float) -> void:
+	if projs.size() < 400:
+		projs.append({"k": "f", "p": o, "v": v, "life": life, "max": life})
+
+
 func _shoot(h: Dictionary, c) -> void:
 	var o: Vector2 = h["p"] + Vector2(h["dir"] * 8, -14)
 	var ang: float = (c.position - o).angle() + (randf() - 0.5) * 0.12
@@ -293,6 +389,24 @@ func _update_projs(c, delta: float) -> void:
 	var w = G.world
 	for i in range(projs.size() - 1, -1, -1):
 		var q: Dictionary = projs[i]
+		if q["k"] == "f":
+			q["life"] -= delta
+			var fv: Vector2 = q["v"]
+			fv.y -= 60.0 * delta
+			q["v"] = fv * (1.0 - delta * 1.2)
+			q["p"] += q["v"] * delta
+			var t: int = w.tile_at(q["p"])
+			if t == Tiles.WOOD or t == Tiles.BOARDS:
+				w.ignite(floori(q["p"].x / TS), floori(q["p"].y / TS))
+			var wet: bool = G.flood and q["p"].y > G.water_y
+			if q["life"] <= 0.0 or wet or (Tiles.solid_h(t) and t != Tiles.WOOD):
+				if wet:
+					G.fx.burst(q["p"], 2, [Color(0.8, 0.85, 0.9, 0.6)], 20.0, -30.0, 1.0, 0.6)
+				projs.remove_at(i)
+				continue
+			if not c.dead and not c.in_dirt and q["p"].distance_to(c.position) < c.r + 3.0:
+				G.main.hurt(1, "fire")
+			continue
 		if q["k"] == "b":
 			q["life"] -= delta
 			q["p"] += q["v"] * delta
@@ -364,6 +478,26 @@ func _draw() -> void:
 	for d in decor_back:
 		if _visible(d["p"], 120.0):
 			draw_decor_item(self, d)
+	if G.flashback:
+		return
+	for l in papers:
+		if _visible(l["p"], 24.0):
+			var lp: Vector2 = l["p"]
+			var read: bool = G.letters.has(l["id"])
+			if not read:
+				draw_circle(lp + Vector2(0, -5), 9.0 + sin(G.time * 3.0), Color(1.0, 0.95, 0.75, 0.12))
+			draw_set_transform(lp + Vector2(0, -5), -0.25, Vector2.ONE)
+			draw_rect(Rect2(-4, -5, 9, 11), Color("2a2230"))
+			draw_rect(Rect2(-3, -4, 7, 9), Color("d8cfb8") if read else Color("f4ecd8"))
+			for k in 3:
+				draw_rect(Rect2(-2, -2 + k * 2, 5, 1), Color("8a7a66"))
+			draw_set_transform(Vector2.ZERO)
+	for q in hearts:
+		if _visible(q["p"], 32.0):
+			if not q["taken"]:
+				var pulse := 0.5 + 0.5 * sin(G.time * 4.0)
+				draw_circle(q["p"] + Vector2(0, -11), 14.0 + pulse * 3.0, Color(0.9, 0.15, 0.25, 0.14 + pulse * 0.08))
+			_prop(17 if q["taken"] else 16, q["p"])
 	for f in fires:
 		if fire_lit(f) and _visible(f["p"], 24.0):
 			_prop(7, f["p"])
@@ -385,7 +519,7 @@ func _draw() -> void:
 		_prop(1 if g["opened"] else 0, g["p"])
 	for a in animals:
 		if a["alive"] and _visible(a["p"], 24.0):
-			var row := 0 if a["t"] == "D" else 1
+			var row := 0 if a["t"] == "D" else (1 if a["t"] == "S" else 2)
 			var col := 2 if a["scared"] > 0.0 and absf(a["vx"]) < 1.0 else int(a["anim"] * 2.0) % 2
 			if a.get("grabbed", false):
 				col = 2
@@ -416,6 +550,13 @@ func _draw() -> void:
 			draw_rect(Rect2(h["p"] + Vector2(-1, -33), Vector2(2, 5)), Color("f2e6c8"))
 			draw_rect(Rect2(h["p"] + Vector2(-1, -27), Vector2(2, 2)), Color("f2e6c8"))
 	for q in projs:
+		if q["k"] == "f":
+			var k: float = 1.0 - q["life"] / q["max"]
+			var rad := 2.0 + k * 6.0
+			draw_circle(q["p"], rad + 1.5, Color(1.0, 0.35, 0.08, 0.35 * (1.0 - k)))
+			draw_circle(q["p"], rad, Color(1.0, 0.65 - k * 0.4, 0.2, 0.85 * (1.0 - k * 0.7)))
+			draw_circle(q["p"], rad * 0.45, Color(1.0, 0.95, 0.7, 0.9 * (1.0 - k)))
+			continue
 		if q["k"] == "b":
 			draw_line(q["p"], q["p"] - q["v"] * 0.02, Color("ffe08a"), 1.0)
 		else:

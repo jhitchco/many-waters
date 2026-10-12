@@ -10,6 +10,7 @@ var t := PackedByteArray()
 var orig := PackedByteArray()
 var covered := PackedByteArray()   # open cells that show the cave back wall
 var tex: Texture2D
+var burning := {}         # tile index -> seconds until it burns away
 
 
 func load_map() -> void:
@@ -38,6 +39,7 @@ func load_map() -> void:
 
 func reset_tiles() -> void:
 	t = orig.duplicate()
+	burning.clear()
 	queue_redraw()
 
 
@@ -86,6 +88,37 @@ func smash(x: int, y: int) -> void:
 	G.fx.burst(c, 12, [Color("6b4a2c"), Color("a0703c"), Color("3d2918")], 110.0, 400.0, 2.0, 1.0)
 	G.shake = maxf(G.shake, 2.0)
 	G.sfx.play("crack")
+
+
+## Kerosene catches in timber and rotten boards, burns a moment, spreads, and leaves nothing.
+func ignite(x: int, y: int) -> void:
+	if x < 0 or y < 0 or x >= W or y >= H:
+		return
+	var i := y * W + x
+	if (t[i] == Tiles.WOOD or t[i] == Tiles.BOARDS) and not burning.has(i):
+		burning[i] = randf_range(1.2, 1.8)
+
+
+func burn_update(delta: float) -> void:
+	if burning.is_empty():
+		return
+	var c = G.creature
+	for i in burning.keys():
+		burning[i] -= delta
+		var x: int = i % W
+		var y: int = i / W
+		var p := Vector2(x * TS + 8, y * TS + 8)
+		if randf() < 0.5:
+			G.fx.burst(p + Vector2(randf_range(-6, 6), 0), 1, [Color("ffe08a"), Color("ff9a2e"), Color("e0401a")], 25.0, -70.0, 1.0, 0.6)
+		if not c.dead and c.position.distance_to(p) < c.r + 10.0:
+			G.main.hurt(1, "fire")
+		if burning[i] <= 0.0:
+			burning.erase(i)
+			t[i] = Tiles.E
+			G.fx.burst(p, 6, [Color(0.25, 0.22, 0.25, 0.7), Color("3d2918")], 30.0, -20.0, 2.0, 1.5)
+			for d in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+				if randf() < 0.85:
+					ignite(x + d.x, y + d.y)
 
 
 func break_boards(x: int, y: int) -> void:
@@ -139,6 +172,8 @@ func _draw() -> void:
 					draw_texture_rect_region(tex, Rect2(p, S), Rect2(0, Tiles.ROW_MISC * TS, TS, TS))
 				continue
 			draw_texture_rect_region(tex, Rect2(p, S), Rect2(h * TS, Tiles.ATLAS_ROW[v] * TS, TS, TS))
+			if burning.has(y * W + x) and not G.flashback:
+				draw_rect(Rect2(p, S), Color(1.0, 0.45 + 0.2 * sin(G.time * 20.0 + x), 0.1, 0.45))
 			if v == Tiles.FALSE and G.reveal_t > 0.0:
 				draw_rect(Rect2(p + Vector2(1, 1), S - Vector2(2, 2)), Color(1.0, 0.83, 0.42, 0.25 + 0.2 * sin(G.time * 8.0)), false, 1.0)
 	# lips: grass on exposed tops, roots under exposed ceilings
