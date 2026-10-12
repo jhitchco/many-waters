@@ -24,6 +24,8 @@ func load_map() -> void:
 			t[y * W + x] = Tiles.CHARS.get(ln[x], Tiles.ROCK)
 	orig = t.duplicate()
 	covered.resize(W * H)
+	var surf := int(G.meta["surf"])
+	var basin_x0 := int(G.meta["basin_x0"])
 	for x in W:
 		var above := 0
 		for y in H:
@@ -31,7 +33,7 @@ func load_map() -> void:
 			if v != Tiles.E:
 				above += 1
 			# underground (below the town surface, outside the open basin) or under real cover
-			covered[y * W + x] = 1 if v == Tiles.E and (above >= 2 or (y > 44 and x < 313)) else 0
+			covered[y * W + x] = 1 if v == Tiles.E and (above >= 2 or (y > surf and x < basin_x0 - 2)) else 0
 
 
 func reset_tiles() -> void:

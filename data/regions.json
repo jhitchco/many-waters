@@ -1,0 +1,177 @@
+[
+{
+"name": "The lair",
+"x0": 4,
+"y0": 110,
+"x1": 30,
+"y1": 124
+},
+{
+"name": "The Under-Valley",
+"x0": 8,
+"y0": 90,
+"x1": 86,
+"y1": 109
+},
+{
+"name": "The deep road",
+"x0": 44,
+"y0": 110,
+"x1": 198,
+"y1": 124
+},
+{
+"name": "The root cellar",
+"x0": 28,
+"y0": 72,
+"x1": 64,
+"y1": 86
+},
+{
+"name": "The Rich farm",
+"x0": 2,
+"y0": 40,
+"x1": 18,
+"y1": 61
+},
+{
+"name": "The Shaw family plot",
+"x0": 3,
+"y0": 62,
+"x1": 16,
+"y1": 70
+},
+{
+"name": "Quabbin Hill",
+"x0": 19,
+"y0": 30,
+"x1": 41,
+"y1": 59
+},
+{
+"name": "Enfield village",
+"x0": 42,
+"y0": 40,
+"x1": 68,
+"y1": 59
+},
+{
+"name": "Enfield town hall cellar",
+"x0": 49,
+"y0": 62,
+"x1": 61,
+"y1": 68
+},
+{
+"name": "The sawmill",
+"x0": 68,
+"y0": 40,
+"x1": 85,
+"y1": 59
+},
+{
+"name": "The Swift River caves",
+"x0": 58,
+"y0": 74,
+"x1": 130,
+"y1": 86
+},
+{
+"name": "Greenwich",
+"x0": 90,
+"y0": 30,
+"x1": 136,
+"y1": 59
+},
+{
+"name": "The church crypt",
+"x0": 103,
+"y0": 60,
+"x1": 123,
+"y1": 76
+},
+{
+"name": "The cemetery rise",
+"x0": 137,
+"y0": 40,
+"x1": 151,
+"y1": 59
+},
+{
+"name": "The bone room",
+"x0": 151,
+"y0": 60,
+"x1": 165,
+"y1": 66
+},
+{
+"name": "Mount Pomeroy",
+"x0": 165,
+"y0": 30,
+"x1": 172,
+"y1": 59
+},
+{
+"name": "Dana common",
+"x0": 180,
+"y0": 30,
+"x1": 265,
+"y1": 59
+},
+{
+"name": "The mill race",
+"x0": 185,
+"y0": 94,
+"x1": 254,
+"y1": 118
+},
+{
+"name": "Dana hill",
+"x0": 205,
+"y0": 30,
+"x1": 213,
+"y1": 59
+},
+{
+"name": "The works",
+"x0": 270,
+"y0": 30,
+"x1": 345,
+"y1": 59
+},
+{
+"name": "The spillway cut",
+"x0": 283,
+"y0": 60,
+"x1": 313,
+"y1": 77
+},
+{
+"name": "The diversion tunnel",
+"x0": 252,
+"y0": 98,
+"x1": 301,
+"y1": 106
+},
+{
+"name": "The earthen dam",
+"x0": 315,
+"y0": 40,
+"x1": 331,
+"y1": 59
+},
+{
+"name": "Prescott, drowned",
+"x0": 351,
+"y0": 60,
+"x1": 410,
+"y1": 100
+},
+{
+"name": "The intake",
+"x0": 396,
+"y0": 30,
+"x1": 411,
+"y1": 50
+}
+]

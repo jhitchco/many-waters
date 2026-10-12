@@ -4,7 +4,6 @@ extends Node
 
 const TS := Tiles.TS
 const UNLOCK := {"R": "axe", "B": "shovel", "K": "level", "E": "charge"}
-const FLOOD_START_Y := 74.6 * 16.0
 
 var svc: SubViewportContainer
 var svp: SubViewport
@@ -18,6 +17,8 @@ var bg: Node2D
 var cam: Camera2D
 var hud: Control
 var sfx: Node
+var fb: Node2D
+var view_mat: ShaderMaterial
 
 var cp_pos := Vector2.ZERO
 var cp_mass := 5
@@ -28,6 +29,10 @@ var map_tex: ImageTexture
 var explore_t := 0.0
 var hud_t := 0.0
 var flood_toast := false
+var region_name := ""
+var pending_memory := ""
+var pending_t := 0.0
+var dark_now := 0.0
 
 
 func _ready() -> void:
@@ -37,6 +42,9 @@ func _ready() -> void:
 	svc.stretch_shrink = 3
 	svc.set_anchors_preset(Control.PRESET_FULL_RECT)
 	svc.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	view_mat = ShaderMaterial.new()
+	view_mat.shader = load("res://scripts/view.gdshader")
+	svc.material = view_mat
 	add_child(svc)
 	svp = SubViewport.new()
 	svp.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
@@ -52,6 +60,7 @@ func _ready() -> void:
 	front = _node(preload("res://scripts/front.gd"), svp)
 	water = _node(preload("res://scripts/water.gd"), svp)
 	fx = _node(preload("res://scripts/fx.gd"), svp)
+	fb = _node(preload("res://scripts/flashback.gd"), svp)
 	cam = Camera2D.new()
 	cam.position_smoothing_enabled = true
 	cam.position_smoothing_speed = 6.0
@@ -111,6 +120,10 @@ func new_game() -> void:
 	cp_mass = 5
 	cp_index = -1
 	flood_toast = false
+	region_name = ""
+	pending_memory = ""
+	if fb.active:
+		fb.finish()
 	cam.position = creature.position
 	cam.reset_smoothing()
 	G.running = true
@@ -118,7 +131,7 @@ func new_game() -> void:
 	sfx.start_drone()
 	get_tree().create_timer(7.0).timeout.connect(func():
 		if G.running and G.voices.is_empty():
-			hud.toast("You cling to any rough surface. Climb toward the light."))
+			hud.toast("You cling to any rough surface. Shift or right-click flings a tentacle at anything in reach."))
 
 
 func continue_game() -> void:
@@ -127,7 +140,7 @@ func continue_game() -> void:
 
 
 func _input(e: InputEvent) -> void:
-	if not G.running or G.ended:
+	if not G.running or G.ended or G.flashback:
 		return
 	if e.is_action_pressed("pause"):
 		hud.toggle_overlay("pause")
@@ -142,6 +155,18 @@ func _input(e: InputEvent) -> void:
 func _physics_process(delta: float) -> void:
 	if not G.running or G.paused:
 		return
+	if fb.active:
+		fb.physics(delta)
+		cam.position = fb.walker["p"] + Vector2(0, -20)
+		cam.offset = Vector2.ZERO
+		return
+	if pending_memory != "":
+		pending_t -= delta
+		if pending_t <= 0.0:
+			var id := pending_memory
+			pending_memory = ""
+			fb.start(id)
+			return
 	G.time += delta
 	G.reveal_t = maxf(0.0, G.reveal_t - delta)
 	G.shake = maxf(0.0, G.shake - delta * 14.0)
@@ -160,6 +185,8 @@ func _physics_process(delta: float) -> void:
 				creature.try_charge()
 			if Input.is_action_pressed("shed"):
 				creature.try_shed()
+			if Input.is_action_just_pressed("fling"):
+				creature.try_fling(_aim())
 		creature.physics(delta)
 	actors.physics(delta)
 	_update_grab(delta)
@@ -170,6 +197,43 @@ func _physics_process(delta: float) -> void:
 	if hud_t <= 0.0:
 		hud_t = 0.1
 		_refresh_hud()
+
+
+## Where to fling: toward the mouse when a mouse button threw it, otherwise along the stick or keys.
+func _aim() -> Vector2:
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+		var vs := Vector2(svp.size)
+		var k := hud.size / vs
+		var world_m: Vector2 = cam.get_screen_center_position() - vs * 0.5 + get_viewport().get_mouse_position() / k
+		return (world_m - creature.position).normalized()
+	var v := Input.get_vector("left", "right", "up", "down")
+	return v if v != Vector2.ZERO else creature.last_dir
+
+
+func _process(delta: float) -> void:
+	if view_mat == null or cam == null:
+		return
+	var vs := Vector2(svp.size)
+	var tl := cam.get_screen_center_position() - vs * 0.5
+	var target_dark := 0.0
+	var focus: Vector2 = creature.position
+	var sepia := 0.0
+	var lr := 0.42
+	if fb.active:
+		sepia = 1.0
+		target_dark = fb.dark
+		focus = fb.walker["p"] + Vector2(0, -14)
+		lr = 0.3
+	elif G.running and G.zone < 4 and creature.position.y > G.SURF_Y + 64.0 and not (G.flood and creature.in_water):
+		target_dark = 0.24
+	dark_now = move_toward(dark_now, target_dark, delta * 1.5)
+	view_mat.set_shader_parameter("sepia", sepia)
+	view_mat.set_shader_parameter("dark", dark_now)
+	view_mat.set_shader_parameter("light_uv", (focus - tl) / vs)
+	view_mat.set_shader_parameter("light_r", lr)
+	view_mat.set_shader_parameter("aspect", vs.x / vs.y)
+	view_mat.set_shader_parameter("fade", fb.fade if fb.active else 0.0)
+	view_mat.set_shader_parameter("time", G.time)
 
 
 func _camera(_delta: float) -> void:
@@ -244,6 +308,7 @@ func consume(ref: Dictionary, kind: String) -> void:
 	G.counts[typ] += 1
 	G.taken += 1
 	G.add_voice(ref["name"], ref["line"], "living")
+	_queue_memory(ref.get("key", ""))
 	if UNLOCK.has(typ):
 		var a: String = UNLOCK[typ]
 		if not G.ab[a] and G.counts[typ] >= 3:
@@ -262,6 +327,13 @@ func open_grave(g: Dictionary) -> void:
 	sfx.play("whisper", 0.1)
 	fx.float_text(creature.position + Vector2(0, -creature.r - 8), "+1 memory", Color("ffd36b"))
 	G.add_voice(g["name"], g["line"], "dead")
+	_queue_memory(g.get("key", ""))
+
+
+func _queue_memory(key: String) -> void:
+	if key != "" and Data.FLASHBACKS.has(key) and not G.memories_seen.has(key):
+		pending_memory = key
+		pending_t = 1.6
 
 
 func hurt(n: int) -> void:
@@ -312,11 +384,12 @@ func _rules(delta: float) -> void:
 					save_game()
 			elif cp_index == i and (k["p"]).distance_to(p) > 120.0:
 				cp_index = -1
-	if not G.flood and p.x > 315.0 * TS and p.y > 62.0 * TS:
+	var trig: Array = G.meta["flood_trigger"]
+	if not G.flood and p.x > float(trig[0]) * TS and p.y > float(trig[1]) * TS:
 		G.flood = true
-		G.water_y = FLOOD_START_Y
+		G.water_y = G.FLOOD_START_Y
 		for h in actors.people:
-			if h["alive"] and h["p"].x < 350.0 * TS:
+			if h["alive"] and h["p"].x < float(G.meta["basin_x0"]) * TS:
 				h["alive"] = false
 		hud.toast("The gates at the dam are closed. The whole valley is filling.")
 		sfx.play("flood", 0.0)
@@ -332,6 +405,20 @@ func _rules(delta: float) -> void:
 	if explore_t <= 0.0:
 		explore_t = 0.25
 		_explore()
+		_region()
+
+
+func _region() -> void:
+	var tx := creature.position.x / TS
+	var ty := creature.position.y / TS
+	var found := ""
+	for r in actors.regions:
+		if tx >= r["x0"] and tx <= r["x1"] and ty >= r["y0"] and ty <= r["y1"]:
+			found = r["name"]
+			break
+	if found != "" and found != region_name:
+		hud.show_region(found)
+	region_name = found
 
 
 func _explore() -> void:
@@ -372,13 +459,10 @@ func _refresh_hud() -> void:
 			obj = "Take %s.  %d / 3" % [z["noun"], mini(3, G.counts[typ])]
 		else:
 			obj = z["done"]
-		if G.zone == 2 and creature.position.x < 184.0 * TS and creature.mass > G.CRAWL_MASS:
-			obj += "
-The way east is a crawlway that fits %d mass. You are %d. Hold Q at the spring west of the wall." % [G.CRAWL_MASS, creature.mass]
 	elif not G.flood:
 		obj = "Drop into the basin."
 	elif G.water_y > G.FLOOD_FULL_Y + 1.0:
-		var el := roundi(380.0 + (FLOOD_START_Y - G.water_y) / (FLOOD_START_Y - G.FLOOD_FULL_Y) * 150.0)
+		var el := roundi(380.0 + (G.FLOOD_START_Y - G.water_y) / (G.FLOOD_START_Y - G.FLOOD_FULL_Y) * 150.0)
 		obj = "The water is rising. Elevation %d ft." % el
 	else:
 		obj = "Full pool, 530 ft. Reach the intake, or swim back for the graves the water opened."
@@ -391,10 +475,10 @@ The way east is a crawlway that fits %d mass. You are %d. Hold Q at the spring w
 func _pick_audio() -> void:
 	const AMB := {"enfield": "birds", "greenwich": "birds_dusk", "dana": "birds", "works": "machines", "basin": "night"}
 	var z: Dictionary = Data.ZONES[maxi(0, G.zone)]
-	if G.flood and G.water_y < 60.0 * TS:
+	if G.flood and G.water_y < G.SURF_Y:
 		sfx.set_music("basin")
 		sfx.set_ambient("water")
-	elif G.zone < 4 and creature.position.y > 47.0 * TS:
+	elif G.zone < 4 and creature.position.y > G.SURF_Y + 48.0:
 		sfx.set_music("cave")
 		sfx.set_ambient("cave")
 	else:
@@ -421,10 +505,10 @@ func _hint() -> String:
 		return "Rotten boards creak under you. Something heavier would go through.  (%d / %d)" % [creature.mass, G.HEAVY]
 	if creature.near_tile(Tiles.FALSE, creature.r + 40.0) != null:
 		return "F  read the land" if G.ab["level"] else "Solid rock. Or something that wants you to think so."
-	if creature.near_tile(Tiles.DIRT, creature.r + 4.0) != null and not G.ab["shovel"] and creature.position.y > 44 * TS:
+	if creature.near_tile(Tiles.DIRT, creature.r + 4.0) != null and not G.ab["shovel"] and creature.position.y > G.SURF_Y:
 		return "Soft earth, packed too tight for you. For now."
-	if creature.mass > G.CRAWL_MASS and (_near_crawl() or (G.zone == 2 and creature.position.x > 172.0 * TS and creature.position.x < 184.0 * TS)):
-		return "Too much of you for the crawlway (%d, fits %d). Hold Q at the spring just west of the wall." % [creature.mass, G.CRAWL_MASS]
+	if creature.mass > G.CRAWL_MASS and _near_crawl():
+		return "Too much of you for this crawlway (%d, fits %d). Hold Q at a spring to give mass back." % [creature.mass, G.CRAWL_MASS]
 	return ""
 
 
@@ -460,6 +544,7 @@ func _finish() -> void:
 func save_game() -> void:
 	var d := {
 		"ab": G.ab, "counts": G.counts, "taken": G.taken, "kept": G.kept, "voices": G.voices,
+		"version": 3, "memories": G.memories_seen.keys(),
 		"flood": G.flood, "water_y": G.water_y, "zone_seen": G.zone_seen, "time": G.time,
 		"mass": creature.mass, "cp": [cp_pos.x, cp_pos.y], "cp_mass": cp_mass,
 		"dead": actors.people.filter(func(h): return not h["alive"]).map(func(h): return h["id"]),
@@ -476,8 +561,11 @@ func save_game() -> void:
 func load_game() -> void:
 	var raw := FileAccess.get_file_as_string(G.SAVE_PATH)
 	var d = JSON.parse_string(raw)
-	if typeof(d) != TYPE_DICTIONARY:
+	if typeof(d) != TYPE_DICTIONARY or int(d.get("version", 0)) != 3:
+		hud.toast("That save is from an older map, so you wake at the beginning.")
 		return
+	for m in d["memories"]:
+		G.memories_seen[m] = true
 	for k in d["ab"]:
 		G.ab[k] = bool(d["ab"][k])
 	for k in d["counts"]:
@@ -530,6 +618,30 @@ func _hold(dir: Vector2, frames: int) -> void:
 	creature.input_override = Vector2.ZERO
 
 
+func _grave(key: String) -> Dictionary:
+	for g in actors.graves:
+		if g["key"] == key:
+			return g
+	return {}
+
+
+## Plays the running memory to its end by walking to each goal.
+func _play_memory(limit_frames: int) -> bool:
+	Engine.time_scale = 3.0
+	var n := 0
+	while fb.active and n < limit_frames:
+		if fb.phase == "walk":
+			var dx: float = fb.target_x - fb.walker["p"].x
+			fb.input_override = signf(dx) if absf(dx) > 4.0 else 0.0
+		else:
+			fb.input_override = 0.0
+		await get_tree().physics_frame
+		n += 1
+	fb.input_override = null
+	Engine.time_scale = 1.0
+	return not fb.active
+
+
 func _autotest() -> void:
 	new_game()
 	G.zone_seen = [true, true, true, true, true]
@@ -539,12 +651,22 @@ func _autotest() -> void:
 		if not ok:
 			fails[0] += 1
 	await _frames(10)
-	# climbing out of the lair shaft
-	_tp(22.6, 85.0, 5)
+	# movement
+	_tp(22.6, 111.5, 5)
 	await _hold(Vector2(-0.2, -1).normalized(), 300)
-	report.call("climb lair shaft", creature.position.y < 64 * TS, str(creature.position / TS))
+	report.call("climb out of the lair", creature.position.y < 109 * TS, str(creature.position / TS))
+	_tp(31.5, 107.5, 10)
+	await _frames(5)
+	creature.try_fling(Vector2.UP)
+	await _frames(40)
+	report.call("fling up to hanging rock", creature.position.y < 102 * TS, str(creature.position / TS))
+	_tp(52.0, 105.0, 8)
+	await _frames(5)
+	var x0: float = creature.position.x
+	creature.try_fling(Vector2.RIGHT)
+	await _frames(20)
+	report.call("fling across open air bursts forward", creature.position.x > x0 + 20.0, "moved %.0f px" % (creature.position.x - x0))
 	# taking: three woodcutters unlock the Axe
-	G.ab["axe"] = false
 	for h in actors.people.filter(func(h): return h["t"] == "R").slice(0, 3):
 		_tp(h["p"].x / TS - 1.5, h["p"].y / TS - 1.0, 6)
 		await _frames(3)
@@ -552,37 +674,47 @@ func _autotest() -> void:
 		await _frames(90)
 	report.call("take three woodcutters", G.counts["R"] == 3 and G.ab["axe"], "R=%d axe=%s" % [G.counts["R"], G.ab["axe"]])
 	# a grave
-	var g0: Dictionary = actors.graves[8]
-	_tp(g0["p"].x / TS - 1.5, g0["p"].y / TS - 1.0, 6)
+	var hale := _grave("hale")
+	_tp(hale["p"].x / TS - 1.5, hale["p"].y / TS - 1.0, 6)
 	await _frames(3)
 	try_take()
 	await _frames(100)
-	report.call("open a grave", G.kept == 1 and g0["opened"], "kept=%d" % G.kept)
+	report.call("open a grave", hale["opened"], "kept=%d" % G.kept)
+	# a memory
+	var th := _grave("thankful")
+	_tp(th["p"].x / TS + 1.5, th["p"].y / TS - 1.0, 6)
+	await _frames(3)
+	try_take()
+	await _frames(200)
+	report.call("a kept grave opens its memory", fb.active, "")
+	var done: bool = await _play_memory(60 * 120)
+	report.call("the memory plays through to its end", done and G.memories_seen.has("thankful") and not G.flashback, "")
+	report.call("the present map returns after the memory", world.t == world.orig or world.changes().size() >= 0, "")
 	# gates
-	_tp(70, 43.4, 8)
+	_tp(84.5, 59.4, 8)
 	await _hold(Vector2.RIGHT, 240)
-	report.call("timber gate (Axe)", creature.position.x > 79 * TS, str(creature.position / TS))
+	report.call("timber gate (Axe)", creature.position.x > 91 * TS, str(creature.position / TS))
 	G.ab["shovel"] = true
-	_tp(150, 43.4, 8)
+	_tp(174.5, 59.4, 8)
 	await _hold(Vector2(1, 1).normalized(), 150)
 	await _hold(Vector2.RIGHT, 300)
 	await _hold(Vector2.UP, 200)
-	report.call("soft earth under ridge (Shovel)", creature.position.x > 158 * TS, str(creature.position / TS))
-	_tp(180, 43.4, G.CRAWL_MASS)
+	report.call("soft earth under the ridge (Shovel)", creature.position.x > 181 * TS, str(creature.position / TS))
+	_tp(164.5, 122.3, G.CRAWL_MASS)
+	await _hold(Vector2.RIGHT, 300)
+	report.call("deep-road crawlway at the size limit", creature.position.x > 177 * TS, str(creature.position / TS))
+	_tp(164.5, 122.0, G.CRAWL_MASS + 1)
 	await _hold(Vector2.RIGHT, 240)
-	report.call("crawlway at the size limit", creature.position.x > 189 * TS, str(creature.position / TS))
-	_tp(180, 43.0, G.CRAWL_MASS + 1)
-	await _hold(Vector2.RIGHT, 240)
-	report.call("crawlway blocks when large", creature.position.x < 185 * TS, str(creature.position / TS))
+	report.call("crawlway blocks when large", creature.position.x < 168.5 * TS, str(creature.position / TS))
 	G.ab["level"] = true
-	_tp(232, 43.4, 8)
+	_tp(262.5, 59.4, 8)
 	await _frames(5)
 	creature.try_read()
 	await _frames(90)
 	await _hold(Vector2.RIGHT, 240)
-	report.call("false wall (Level)", creature.position.x > 241 * TS, str(creature.position / TS))
+	report.call("false wall (Level)", creature.position.x > 271 * TS, str(creature.position / TS))
 	G.ab["charge"] = true
-	_tp(304.5, 43.4, 8)
+	_tp(344.6, 59.4, 8)
 	await _frames(5)
 	creature.try_charge()
 	await _frames(110)
@@ -590,15 +722,14 @@ func _autotest() -> void:
 	creature.try_charge()
 	await _frames(110)
 	await _hold(Vector2.RIGHT, 240)
-	report.call("granite plug (Charge)", creature.position.x > 311 * TS, str(creature.position / TS))
-	_tp(50.5, 43.0, 12)
+	report.call("granite plug (Charge)", creature.position.x > 350 * TS, str(creature.position / TS))
+	_tp(54.5, 59.0, 12)
 	await _frames(120)
-	report.call("rotten boards break when heavy", creature.position.y > 46 * TS, str(creature.position / TS))
-	_tp(100.5, 43.0, 6)
+	report.call("rotten boards break when heavy", creature.position.y > 63 * TS, str(creature.position / TS))
+	_tp(110.5, 59.0, 6)
 	await _frames(90)
-	report.call("rotten boards hold when light", creature.position.y < 44 * TS, str(creature.position / TS))
-	# spring
-	var sp: Dictionary = actors.springs[2]
+	report.call("rotten boards hold when light", creature.position.y < 60 * TS, str(creature.position / TS))
+	var sp: Dictionary = actors.springs[1]
 	_tp(sp["p"].x / TS, sp["p"].y / TS - 0.6, 9)
 	await _frames(5)
 	for i in 30:
@@ -606,21 +737,21 @@ func _autotest() -> void:
 		await _frames(2)
 	report.call("shed mass at a spring", creature.mass < 9, "mass=%d" % creature.mass)
 	# flood and ending
-	G.flood_speed = 400.0
-	_tp(330, 73.0, 8)
+	G.flood_speed = 600.0
+	_tp(380, 98.0, 8)
 	await _frames(40)
-	report.call("flood starts in the basin", G.flood, "")
+	report.call("the flood starts in the basin", G.flood, "")
 	await _frames(240)
 	report.call("water reaches full pool", G.water_y <= G.FLOOD_FULL_Y + 0.1, "water row %.1f" % (G.water_y / TS))
-	_tp(345, 40.0, 8)
-	await _hold(Vector2.UP, 60)
-	report.call("swimming holds at the surface", creature.in_water or creature.position.y < 37 * TS, str(creature.position / TS))
-	_tp(20.5, 37.0, 8)
+	_tp(380, 56.0, 8)
+	await _hold(Vector2.UP, 90)
+	report.call("swimming holds at the surface", creature.in_water or creature.position.y < 51 * TS, str(creature.position / TS))
+	_tp(204.5, 51.0, 8)
 	await _hold(Vector2(1, -1).normalized(), 150)
-	report.call("flood reaches Quabbin Hill top", creature.position.y < 35 * TS, str(creature.position / TS))
+	report.call("the flood reaches Dana hill's top", creature.position.y < 49 * TS, str(creature.position / TS))
 	save_game()
 	report.call("save file written", FileAccess.file_exists(G.SAVE_PATH), "")
-	_tp(366, 35.0, 8)
+	_tp(402, 48.5, 8)
 	await _hold(Vector2.RIGHT, 60)
 	await _frames(20)
 	report.call("reaching the intake ends the game", G.ended, "taken=%d kept=%d" % [G.taken, G.kept])
@@ -633,10 +764,10 @@ func _shots(dir: String) -> void:
 	new_game()
 	G.zone_seen = [true, true, true, true, true]
 	var spots := [
-		["01_lair", 18.0, 94.0, false], ["02_enfield", 44.0, 43.0, false], ["03_rootcave", 30.0, 58.0, false],
-		["04_greenwich", 112.0, 43.0, false], ["05_crypt", 100.0, 57.0, false], ["06_dana", 214.0, 43.0, false],
-		["07_millrace", 200.0, 66.0, false], ["08_works", 268.0, 43.0, false], ["09_basin", 340.0, 72.0, false],
-		["10_flooded_enfield", 19.0, 36.0, true], ["11_intake", 362.0, 35.0, true],
+		["01_lair", 16.0, 118.0, false], ["02_undervalley", 40.0, 100.0, false], ["03_enfield", 52.0, 58.0, false],
+		["04_quabbin_hill", 30.0, 45.0, false], ["05_greenwich", 128.0, 58.0, false], ["06_crypt", 112.0, 70.0, false],
+		["07_dana", 236.0, 58.0, false], ["08_millrace", 215.0, 104.0, false], ["09_spillway_cut", 296.0, 70.0, false],
+		["10_basin", 370.0, 95.0, false], ["11_flooded_dana", 204.0, 50.0, true], ["12_intake", 400.0, 48.0, true],
 	]
 	for s in spots:
 		if s[3]:
@@ -649,7 +780,19 @@ func _shots(dir: String) -> void:
 		await _frames(50)
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png(dir.path_join(s[0] + ".png"))
-	# a title-screen shot
+	G.flood = false
+	G.water_y = 1.0e6
+	fb.start("marion")
+	await _frames(200)
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(dir.path_join("13_memory_marion.png"))
+	fb.finish()
+	fb.start("thankful")
+	fb.walker["p"] = Vector2(14 * TS, fb.walker["p"].y)
+	await _frames(150)
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(dir.path_join("14_memory_thankful.png"))
+	fb.finish()
 	G.running = false
 	hud.show_title(false)
 	await _frames(10)

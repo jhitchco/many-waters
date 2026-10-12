@@ -4,7 +4,6 @@ extends Node
 const TS := 16
 const HEAVY := 10            # mass at which rotten boards give way
 const CRAWL_MASS := 6        # largest mass that fits a one-tile crawlway
-const FLOOD_FULL_Y := 36.6 * 16.0
 const SAVE_PATH := "user://many_waters_save.json"
 
 var main: Node
@@ -32,10 +31,22 @@ var running := false
 var paused := false
 var ended := false
 var shake := 0.0
+var flashback := false
+var memories_seen := {}
+
+## Map geometry from data/meta.json (written by tools/build_level.py).
+var meta := {}
+var FLOOD_FULL_Y := 0.0
+var FLOOD_START_Y := 0.0
+var SURF_Y := 0.0
 
 
 func _ready() -> void:
 	_setup_input()
+	meta = JSON.parse_string(FileAccess.get_file_as_string("res://data/meta.json"))
+	FLOOD_FULL_Y = float(meta["flood_row"]) * TS
+	FLOOD_START_Y = float(meta["flood_start_row"]) * TS
+	SURF_Y = float(meta["surf"]) * TS
 
 
 func reset() -> void:
@@ -53,6 +64,8 @@ func reset() -> void:
 	ended = false
 	paused = false
 	shake = 0.0
+	flashback = false
+	memories_seen = {}
 
 
 func add_voice(who: String, line: String, kind: String) -> void:
@@ -72,12 +85,12 @@ func zone_at(px: float) -> int:
 func _setup_input() -> void:
 	var keys := {
 		"left": [KEY_A, KEY_LEFT], "right": [KEY_D, KEY_RIGHT], "up": [KEY_W, KEY_UP], "down": [KEY_S, KEY_DOWN],
-		"take": [KEY_SPACE, KEY_J], "read": [KEY_F, KEY_K], "charge": [KEY_E, KEY_L], "shed": [KEY_Q],
+		"take": [KEY_SPACE, KEY_J], "read": [KEY_F, KEY_K], "charge": [KEY_E, KEY_L], "shed": [KEY_Q], "fling": [KEY_SHIFT, KEY_I],
 		"chorus": [KEY_C], "map": [KEY_TAB, KEY_M], "pause": [KEY_ESCAPE, KEY_P], "mute": [KEY_N],
 	}
 	var pads := {
 		"take": [JOY_BUTTON_A], "shed": [JOY_BUTTON_B], "read": [JOY_BUTTON_X], "charge": [JOY_BUTTON_Y],
-		"map": [JOY_BUTTON_BACK], "pause": [JOY_BUTTON_START], "chorus": [JOY_BUTTON_RIGHT_SHOULDER],
+		"map": [JOY_BUTTON_BACK], "pause": [JOY_BUTTON_START], "chorus": [JOY_BUTTON_RIGHT_SHOULDER], "fling": [JOY_BUTTON_LEFT_SHOULDER],
 		"left": [JOY_BUTTON_DPAD_LEFT], "right": [JOY_BUTTON_DPAD_RIGHT], "up": [JOY_BUTTON_DPAD_UP], "down": [JOY_BUTTON_DPAD_DOWN],
 	}
 	var axes := {"left": [JOY_AXIS_LEFT_X, -1.0], "right": [JOY_AXIS_LEFT_X, 1.0], "up": [JOY_AXIS_LEFT_Y, -1.0], "down": [JOY_AXIS_LEFT_Y, 1.0]}
@@ -93,6 +106,16 @@ func _setup_input() -> void:
 			var j := InputEventJoypadButton.new()
 			j.button_index = b
 			InputMap.action_add_event(a, j)
+	var rmb := InputEventMouseButton.new()
+	rmb.button_index = MOUSE_BUTTON_RIGHT
+	InputMap.action_add_event("fling", rmb)
+	var lmb := InputEventMouseButton.new()
+	lmb.button_index = MOUSE_BUTTON_LEFT
+	InputMap.action_add_event("take", lmb)
+	var rt := InputEventJoypadMotion.new()
+	rt.axis = JOY_AXIS_TRIGGER_RIGHT
+	rt.axis_value = 1.0
+	InputMap.action_add_event("fling", rt)
 	for a in axes:
 		var m := InputEventJoypadMotion.new()
 		m.axis = axes[a][0]

@@ -27,6 +27,10 @@ var shed_cd := 0.0
 var read_cd := 0.0
 var charge = null        # {"p": Vector2, "tx": int, "ty": int, "fuse": float}
 var input_override = null   # Vector2 used by the autotest
+var fling = null         # {"p": Vector2, "t": float, "whiff": bool}
+var fling_cd := 0.0
+var momentum := 0.0      # after a fling the body carries its speed for a moment
+var last_dir := Vector2.UP
 
 
 static func radius_for(m: int) -> float:
@@ -44,12 +48,16 @@ func reset_at(p: Vector2, m: int) -> void:
 	grab = null
 	dead = false
 	charge = null
+	fling = null
+	momentum = 0.0
 
 
 func physics(delta: float) -> void:
 	inv = maxf(0.0, inv - delta)
 	shed_cd = maxf(0.0, shed_cd - delta)
 	read_cd = maxf(0.0, read_cd - delta)
+	fling_cd = maxf(0.0, fling_cd - delta)
+	momentum = maxf(0.0, momentum - delta)
 	if dead:
 		return
 	var inp: Vector2 = input_override if input_override != null else Input.get_vector("left", "right", "up", "down")
@@ -62,9 +70,22 @@ func physics(delta: float) -> void:
 	var spd := maxf(70.0, 130.0 - mass * 1.6)
 	if in_dirt:
 		spd *= 0.55
-	if in_water:
+	if inp != Vector2.ZERO:
+		last_dir = inp.normalized()
+	if fling != null and not fling["whiff"]:
+		fling["t"] += delta
+		var to: Vector2 = fling["p"] - position
+		vel = vel.lerp(to.normalized() * 380.0, minf(1.0, delta * 14.0))
+		if to.length() < r + 5.0 or fling["t"] > 0.7:
+			fling = null
+			momentum = 0.22
+	elif in_water:
 		spd *= 1.15
 		vel = vel.lerp(inp * spd, minf(1.0, delta * 4.0))
+	elif momentum > 0.0:
+		vel = vel.lerp(inp * spd, minf(1.0, delta * 1.5))
+		if not cl:
+			vel.y = minf(380.0, vel.y + 600.0 * delta)
 	elif cl or in_dirt:
 		vel = vel.lerp(inp * spd, minf(1.0, delta * (8.0 if inp != Vector2.ZERO else 10.0)))
 	else:
@@ -77,6 +98,10 @@ func physics(delta: float) -> void:
 	if in_dirt and inp != Vector2.ZERO and randf() < 0.25:
 		G.fx.burst(position, 1, [Color("4a3424"), Color("6b4e34")], 30.0, 200.0, 1.0, 0.5)
 	_update_anchors(inp, cl)
+	if fling != null and fling["whiff"]:
+		fling["t"] += delta
+		if fling["t"] > 0.18:
+			fling = null
 	if mass >= G.HEAVY:
 		var b = near_tile(Tiles.BOARDS, r + 8.0)
 		if b != null:
@@ -207,6 +232,45 @@ func _update_anchors(inp: Vector2, cl: bool) -> void:
 		anchors.pop_front()
 
 
+## How far a flung tentacle reaches. Bigger bodies reach further.
+func reach() -> float:
+	return minf(150.0, 90.0 + mass * 2.5)
+
+
+## Throw a tentacle along `dir` at the first rough surface in reach and pull the body to it.
+## With nothing in reach it whips the air and gives a short burst instead.
+func try_fling(dir: Vector2) -> void:
+	if fling_cd > 0.0 or dead:
+		return
+	if dir == Vector2.ZERO:
+		dir = last_dir
+	dir = dir.normalized()
+	var w = G.world
+	var d := r * 0.6
+	var hit = null
+	while d < r + reach():
+		var p := position + dir * d
+		var v: int = w.tile_at(p)
+		if Tiles.cling(v):
+			hit = p
+			break
+		if w.solid_c(v):
+			break
+		d += 3.0
+	if hit != null:
+		fling = {"p": hit, "t": 0.0, "whiff": false}
+		fling_cd = 0.3
+		anchors.clear()
+		G.sfx.play("swing", 0.2)
+		G.fx.burst(hit, 4, [Color("8c1c34"), Color("4a0e24")], 30.0, 200.0, 1.0, 0.4)
+	else:
+		fling = {"p": position + dir * (r + reach() * 0.7), "t": 0.0, "whiff": true}
+		vel += dir * 170.0
+		momentum = 0.25
+		fling_cd = 0.5
+		G.sfx.play("swing", 0.3)
+
+
 func try_shed() -> bool:
 	var s = G.actors.near_spring(position, r)
 	if s == null or shed_cd > 0.0 or mass <= 2:
@@ -304,6 +368,11 @@ func _draw() -> void:
 		var ang := float(i) / nf * TAU + t * 0.6 + sin(t * 1.3 + i) * 0.6
 		var ln := rr * 1.5 + sin(t * 2.0 + i) * rr * 0.3
 		_tentacle(Vector2.ZERO, Vector2.from_angle(ang) * ln + Vector2(0, 0 if in_water else rr * 0.3), rr * 0.26, i + 10.0)
+	if fling != null:
+		var fp: Vector2 = fling["p"]
+		if fling["whiff"]:
+			fp = position.lerp(fp, clampf(fling["t"] / 0.09, 0.0, 1.0))
+		_tentacle(Vector2.ZERO, fp - position, rr * 0.42, 77.0)
 	if grab != null:
 		var ref: Dictionary = grab["ref"]
 		var tp: Vector2 = ref["p"] + (Vector2(0, -12) if grab["kind"] == "h" else Vector2(0, -4))

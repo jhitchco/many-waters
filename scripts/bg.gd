@@ -2,7 +2,7 @@ extends Node2D
 ## Parallax sky, far hills and near tree line for each town, cross-faded between areas,
 ## with the cave backdrop fading in as the camera goes underground.
 
-const GROUND_Y := 44.0 * 16.0
+var GROUND_Y := 0.0
 const AREAS := ["enfield", "greenwich", "dana", "works", "basin"]
 
 var sets := {}
@@ -13,6 +13,7 @@ var blend := 1.0
 
 
 func _ready() -> void:
+	GROUND_Y = G.SURF_Y
 	for a in AREAS:
 		sets[a] = [load("res://assets/bg_%s_sky.png" % a), load("res://assets/bg_%s_far.png" % a), load("res://assets/bg_%s_mid.png" % a)]
 	cave = load("res://assets/bg_cave.png")

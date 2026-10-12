@@ -13,6 +13,8 @@ var start := Vector2.ZERO
 var decor_back: Array = []
 var decor_front: Array = []
 var projs: Array = []
+var fires: Array = []
+var regions: Array = []
 var hover = null
 
 var t_people: Texture2D
@@ -31,7 +33,8 @@ func load_entities() -> void:
 	for k in dj:
 		var a: Array = dj[k]
 		decor_rects[k] = Rect2(a[0], a[1], a[2], a[3])
-	people.clear(); animals.clear(); graves.clear(); springs.clear(); cps.clear()
+	people.clear(); animals.clear(); graves.clear(); springs.clear(); cps.clear(); fires.clear()
+	regions = JSON.parse_string(FileAccess.get_file_as_string("res://data/regions.json"))
 	var pools := {}
 	for k in Data.VOICES:
 		pools[k] = Data.VOICES[k].duplicate()
@@ -42,17 +45,25 @@ func load_entities() -> void:
 		var p := Vector2(int(e["x"]) * TS + 8, int(e["y"]) * TS)
 		match typ:
 			"R", "B", "K", "E", "G", "P":
-				var v: Array = pools[typ].pop_front() if pools[typ].size() > 0 else ["Unknown", "..."]
-				people.append({"t": typ, "p": p, "home": p.x, "vy": 0.0, "vx": 0.0, "dir": 1 if randf() < 0.5 else -1,
+				var key: String = e.get("id", "")
+				var v: Array
+				if key != "" and Data.NAMED.has(key):
+					v = Data.NAMED[key]
+				else:
+					v = pools[typ].pop_front() if pools[typ].size() > 0 else ["Unknown", "..."]
+				people.append({"key": key, "t": typ, "p": p, "home": p.x, "vy": 0.0, "vx": 0.0, "dir": 1 if randf() < 0.5 else -1,
 					"state": "patrol", "alive": true, "cd": 1.0 + randf(), "anim": randf() * 6.0, "alert_t": 0.0,
 					"lost": 0.0, "swing": 0.0, "name": v[0], "line": v[1], "id": people.size()})
 			"D", "S":
 				animals.append({"t": typ, "p": p, "start": p, "home": p.x, "vy": 0.0, "vx": 0.0, "dir": 1, "alive": true,
 					"respawn": 0.0, "anim": randf() * 6.0, "scared": 0.0})
 			"T":
-				var d: Array = Data.DEAD[gi] if gi < Data.DEAD.size() else ["Unknown", "..."]
-				graves.append({"p": p, "opened": false, "name": d[0], "line": d[1], "id": gi})
+				var key: String = e.get("id", "")
+				var d: Array = Data.DEAD.get(key, ["Unknown", "..."])
+				graves.append({"p": p, "opened": false, "name": d[0], "line": d[1], "id": gi, "key": key})
 				gi += 1
+			"F":
+				fires.append({"p": p, "after": e.get("after", "")})
 			"W":
 				springs.append({"p": p})
 			"C":
@@ -64,7 +75,7 @@ func load_entities() -> void:
 	decor_back.clear(); decor_front.clear()
 	var dl = JSON.parse_string(FileAccess.get_file_as_string("res://data/decor.json"))
 	for d in dl:
-		var item := {"k": d["k"], "p": Vector2(int(d["x"]) * TS + 8, int(d["y"]) * TS)}
+		var item := {"k": d["k"], "p": Vector2(int(d["x"]) * TS + 8, int(d["y"]) * TS), "clear": d.get("clear", "")}
 		if d["layer"] == "front":
 			decor_front.append(item)
 		else:
@@ -129,6 +140,23 @@ func physics(delta: float) -> void:
 	for a in animals:
 		_update_animal(a, c, delta)
 	_update_projs(c, delta)
+	for f in fires:
+		if not fire_lit(f):
+			continue
+		if randf() < 0.9:
+			G.fx.burst(f["p"] + Vector2(randf_range(-7, 7), -2), 1, [Color("ffe08a"), Color("ff9a2e"), Color("e0401a")], 22.0, -60.0, 1.0, 0.7)
+		if randf() < 0.08:
+			G.fx.burst(f["p"] + Vector2(0, -10), 1, [Color(0.3, 0.28, 0.3, 0.6)], 12.0, -25.0, 2.0, 2.0)
+		if not c.dead and c.inv <= 0.0 and c.position.distance_to(f["p"] + Vector2(0, -6)) < c.r + 9.0:
+			G.main.hurt(1)
+			c.vel += (c.position - f["p"]).normalized() * 160.0
+
+
+func fire_lit(f: Dictionary) -> bool:
+	if G.flood and f["p"].y > G.water_y:
+		return false
+	var a: String = f["after"]
+	return a == "" or G.ab.get(a, false)
 
 
 func _ground(e: Dictionary, delta: float) -> bool:
@@ -318,6 +346,9 @@ func _prop(i: int, p: Vector2) -> void:
 
 func draw_decor_item(ci: CanvasItem, d: Dictionary) -> void:
 	var k: String = d["k"]
+	var clear: String = d.get("clear", "")
+	if clear != "" and G.ab.get(clear, false) and not G.flashback:
+		k = "p:8"                     # the clearing crews have been through
 	var p: Vector2 = d["p"]
 	if k.begins_with("p:"):
 		var i := int(k.substr(2))
@@ -333,6 +364,12 @@ func _draw() -> void:
 	for d in decor_back:
 		if _visible(d["p"], 120.0):
 			draw_decor_item(self, d)
+	for f in fires:
+		if fire_lit(f) and _visible(f["p"], 24.0):
+			_prop(7, f["p"])
+			var fl := 3.0 + sin(G.time * 17.0 + f["p"].x) * 1.5
+			draw_circle(f["p"] + Vector2(0, -7), 9.0 + fl, Color(1.0, 0.55, 0.15, 0.18))
+			draw_circle(f["p"] + Vector2(0, -6), 5.0 + fl * 0.5, Color(1.0, 0.75, 0.3, 0.55))
 	for k in cps:
 		if _visible(k["p"], 32.0):
 			_prop(5 if k["on"] else 4, k["p"])

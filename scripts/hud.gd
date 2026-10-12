@@ -50,6 +50,15 @@ var chorus_list: VBoxContainer
 var chorus_head: Label
 var pause_scr: Control
 var map_scr: Control
+var fb_ui: Control
+var fb_kick: Label
+var fb_title: Label
+var fb_line: Label
+var fb_goal: Label
+var fb_prompt: Label
+var fb_card_t := 0.0
+var region_lbl: Label
+var region_t := 0.0
 
 
 func build() -> void:
@@ -107,13 +116,17 @@ func build() -> void:
 	chips_box = HBoxContainer.new()
 	chips_box.add_theme_constant_override("separation", 8)
 	foot.add_child(chips_box)
+	var fl := PanelContainer.new()
+	fl.add_theme_stylebox_override("panel", _box(Color(0.03, 0.04, 0.07, 0.6), Color("e0566a"), 10, 5))
+	fl.add_child(_label("FLING  SHIFT / RMB", mono, 13, BONE))
+	chips_box.add_child(fl)
 	for a in [["axe", "THE AXE"], ["shovel", "THE SHOVEL"], ["level", "THE LEVEL  F"], ["charge", "THE CHARGE  E"]]:
 		var pc := PanelContainer.new()
 		var l := _label(a[1], mono, 13, DIM)
 		pc.add_child(l)
 		chips_box.add_child(pc)
 		chips[a[0]] = [pc, l]
-	keys_lbl = _label("MOVE WASD/ARROWS · TAKE SPACE · SHED Q AT A SPRING · MAP TAB · CHORUS C · PAUSE ESC", mono, 12, DIM)
+	keys_lbl = _label("MOVE WASD · TAKE SPACE/CLICK · FLING SHIFT/RIGHT-CLICK · SHED Q AT A SPRING · MAP TAB · CHORUS C · PAUSE ESC", mono, 12, DIM)
 	foot.add_child(keys_lbl)
 
 	chorus_box = VBoxContainer.new()
@@ -147,6 +160,11 @@ func build() -> void:
 	toast_lbl.modulate.a = 0.0
 	game_ui.add_child(toast_lbl)
 
+	region_lbl = _center(_label("", mono, 16, BONE))
+	region_lbl.custom_minimum_size = Vector2(800, 0)
+	region_lbl.modulate.a = 0.0
+	game_ui.add_child(region_lbl)
+	_build_flashback()
 	_build_title()
 	_build_ending()
 	_build_chorus()
@@ -218,6 +236,65 @@ func _screen(alpha: float) -> Control:
 	c.visible = false
 	add_child(c)
 	return c
+
+
+func _build_flashback() -> void:
+	fb_ui = Control.new()
+	fb_ui.set_anchors_preset(Control.PRESET_FULL_RECT)
+	fb_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fb_ui.visible = false
+	add_child(fb_ui)
+	var head := VBoxContainer.new()
+	head.name = "head"
+	head.custom_minimum_size = Vector2(900, 0)
+	fb_ui.add_child(head)
+	fb_kick = _center(_label("", mono, 15, GOLD))
+	fb_title = _center(_label("", serif_i, 54, BONE))
+	for l in [fb_kick, fb_title]:
+		l.custom_minimum_size = Vector2(900, 0)
+		head.add_child(l)
+	fb_line = _center(_label("", serif_i, 27, BONE, true))
+	fb_line.custom_minimum_size = Vector2(980, 0)
+	fb_ui.add_child(fb_line)
+	fb_goal = _label("", mono, 15, GOLD)
+	fb_ui.add_child(fb_goal)
+	fb_prompt = _center(_label("SPACE", mono, 16, BONE))
+	fb_prompt.custom_minimum_size = Vector2(400, 0)
+	fb_ui.add_child(fb_prompt)
+
+
+func flashback_begin(title: String, when: String) -> void:
+	fb_kick.text = "A MEMORY · " + when.to_upper()
+	fb_title.text = title
+	fb_card_t = 5.0
+	fb_ui.visible = true
+	game_ui.visible = false
+	fb_line.text = ""
+	_layout()
+
+
+func flashback_line(s: String) -> void:
+	fb_line.text = s
+	_layout()
+
+
+func flashback_goal(s: String) -> void:
+	fb_goal.text = s.to_upper()
+
+
+func flashback_prompt(on: bool) -> void:
+	fb_prompt.visible = on
+	fb_prompt.text = "SPACE  " + fb_goal.text.to_lower() if on else ""
+
+
+func flashback_end() -> void:
+	fb_ui.visible = false
+	game_ui.visible = true
+
+
+func show_region(name: String) -> void:
+	region_lbl.text = "—  " + name.to_upper() + "  —"
+	region_t = 3.5
 
 
 func _build_title() -> void:
@@ -305,6 +382,13 @@ func _layout() -> void:
 	chorus_box.position = Vector2(s.x - 470 - 28, s.y - chorus_box.get_combined_minimum_size().y - 24)
 	hint_panel.position = Vector2((s.x - hint_panel.get_combined_minimum_size().x) * 0.5, s.y - 120)
 	card_box.position = Vector2((s.x - 700) * 0.5, s.y * 0.2)
+	region_lbl.position = Vector2((s.x - 800) * 0.5, s.y * 0.13)
+	if fb_ui != null:
+		var head: Control = fb_ui.get_node("head")
+		head.position = Vector2((s.x - 900) * 0.5, s.y * 0.1)
+		fb_line.position = Vector2((s.x - 980) * 0.5, s.y - 150)
+		fb_goal.position = Vector2(28, s.y - 40)
+		fb_prompt.position = Vector2((s.x - 400) * 0.5, s.y - 70)
 	toast_lbl.size = Vector2(800, 0)
 	toast_lbl.position = Vector2((s.x - 800) * 0.5, s.y - 178)
 	for scr in [title_scr, ending_scr, pause_scr]:
@@ -459,6 +543,12 @@ func _process(delta: float) -> void:
 	toast_t = maxf(0.0, toast_t - delta)
 	card_box.modulate.a = clampf(card_t / 0.8, 0.0, 1.0) if card_t < 6.0 else clampf((6.5 - card_t) / 0.5, 0.0, 1.0)
 	toast_lbl.modulate.a = clampf(toast_t / 0.6, 0.0, 1.0)
+	region_t = maxf(0.0, region_t - delta)
+	region_lbl.modulate.a = clampf(region_t / 0.8, 0.0, 1.0) if region_t < 2.7 else clampf((3.5 - region_t) / 0.6, 0.0, 1.0)
+	fb_card_t = maxf(0.0, fb_card_t - delta)
+	if fb_ui.visible:
+		var head: Control = fb_ui.get_node("head")
+		head.modulate.a = clampf(fb_card_t / 1.0, 0.0, 1.0)
 	queue_redraw()
 
 
