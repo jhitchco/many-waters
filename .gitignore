@@ -1,0 +1,5 @@
+.godot/
+*.import.bak
+data/_world_preview.png
+assets/_preview_sheet.png
+export/
