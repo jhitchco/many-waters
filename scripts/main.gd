@@ -87,6 +87,9 @@ func _ready() -> void:
 			_shots(a.substr(8))
 			return
 	hud.show_title(FileAccess.file_exists(G.SAVE_PATH))
+	sfx.start_drone()
+	sfx.set_music("title")
+	sfx.set_ambient("birds_dusk")
 
 
 func _node(script: Script, parent: Node) -> Node:
@@ -187,9 +190,11 @@ func try_take() -> void:
 		"h":
 			ref["state"] = "grabbed"
 			sfx.play("swing")
+			sfx.play("scream" if randf() < 0.5 else "scream2", 0.15)
 		"a":
 			ref["grabbed"] = true
 			sfx.play("swing")
+			sfx.play("bleat", 0.2)
 		"g":
 			sfx.play("crack", 0.2)
 
@@ -254,6 +259,7 @@ func open_grave(g: Dictionary) -> void:
 	fx.burst(g["p"] + Vector2(0, -4), 22, [Color("6b4e34"), Color("8f7458"), Color("f2e6c8")], 80.0, 250.0, 1.5, 1.4)
 	fx.burst(g["p"] + Vector2(0, -8), 10, [Color("ffd36b"), Color("fff1b8")], 30.0, -25.0, 1.0, 2.2)
 	sfx.play("bell", 0.03)
+	sfx.play("whisper", 0.1)
 	fx.float_text(creature.position + Vector2(0, -creature.r - 8), "+1 memory", Color("ffd36b"))
 	G.add_voice(g["name"], g["line"], "dead")
 
@@ -377,8 +383,23 @@ The way east is a crawlway that fits %d mass. You are %d. Hold Q at the spring w
 	else:
 		obj = "Full pool, 530 ft. Reach the intake, or swim back for the graves the water opened."
 	hud.refresh(z, obj, creature.mass)
+	_pick_audio()
 	hud.set_hint(_hint())
 	actors.hover = null if creature.grab != null or creature.dead else actors.find_target(creature.position, creature.r + 60.0)
+
+
+func _pick_audio() -> void:
+	const AMB := {"enfield": "birds", "greenwich": "birds_dusk", "dana": "birds", "works": "machines", "basin": "night"}
+	var z: Dictionary = Data.ZONES[maxi(0, G.zone)]
+	if G.flood and G.water_y < 60.0 * TS:
+		sfx.set_music("basin")
+		sfx.set_ambient("water")
+	elif G.zone < 4 and creature.position.y > 47.0 * TS:
+		sfx.set_music("cave")
+		sfx.set_ambient("cave")
+	else:
+		sfx.set_music(z["bg"])
+		sfx.set_ambient(AMB[z["bg"]])
 
 
 func _hint() -> String:
@@ -430,6 +451,8 @@ func _finish() -> void:
 	sfx.play("flood", 0.0)
 	await get_tree().create_timer(1.8).timeout
 	G.running = false
+	sfx.set_music("title")
+	sfx.set_ambient("water")
 	hud.show_ending(e["title"], e["body"], tally)
 
 

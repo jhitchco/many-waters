@@ -61,8 +61,20 @@ data/entities.json      people, graves, springs, cellar holes (generated)
 data/decor.json         trees, buildings, props (generated)
 tools/build_level.py    builds the map and checks that progression works
 tools/gen_art.py        draws every sprite, tile and backdrop
-tools/gen_audio.py      synthesizes every sound
+tools/gen_audio.py      synthesizes the core sound effects
+tools/gen_music.py      composes and renders the score, ambient beds and extra effects
+tools/publish_web.sh    builds the Web export and publishes it to GitHub Pages
 ```
+
+## Sound and music
+
+Everything is synthesized by `tools/gen_music.py`, with no samples. Each town has its own
+original piece on period instruments: fiddle and reed organ in Enfield, a meetinghouse
+hymn with choir and bell in Greenwich, plucked strings in Dana, an industrial pulse at the
+Works, slow bells over the basin, and a low choir in the caves. Ambient beds (birds, dusk,
+night crickets, machinery, cave drips, water) crossfade with the music. The creature
+slithers as it moves and digs in soft earth, people scream when taken, opened graves
+whisper, sound muffles underwater, and a heartbeat starts when you are down to 3 mass.
 
 ## Changing the world
 
@@ -92,7 +104,14 @@ godot --path . -- --shots=<folder>
 
 This saves screenshots of each area to a folder (it needs a window, not `--headless`).
 
-## Exporting
+## Web build
 
-Add `data/*.txt, data/*.json, assets/*.json` to the export preset's
-"Filters to export non-resource files" so the map and decor data ship with the build.
+`export_presets.cfg` has a Web preset (single-threaded, so it runs on GitHub Pages
+without special server headers). With Godot's web export templates installed:
+
+```
+tools/publish_web.sh path/to/godot
+```
+
+builds `export/web/` and force-pushes it to the `gh-pages` branch. The web build uses
+the browser's default font instead of Georgia and Courier.
