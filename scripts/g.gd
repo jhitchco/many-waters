@@ -16,6 +16,7 @@ var hud: Control
 var cam: Camera2D
 var sfx: Node
 var boss: Node2D
+var boss2: Node2D
 
 var ab := {}
 var counts := {}

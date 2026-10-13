@@ -18,6 +18,9 @@ var hearts: Array = []
 var papers: Array = []
 var foreman_p := Vector2.ZERO
 var shovel_p := Vector2.ZERO
+var train_p := Vector2.ZERO
+var hound_p := Vector2.ZERO
+var diver_p := Vector2.ZERO
 var regions: Array = []
 var hover = null
 
@@ -77,6 +80,12 @@ func load_entities() -> void:
 				foreman_p = p
 			"Z":
 				shovel_p = p
+			"Y":
+				train_p = p
+			"V":
+				hound_p = p
+			"X":
+				diver_p = p
 			"W":
 				springs.append({"p": p})
 			"C":

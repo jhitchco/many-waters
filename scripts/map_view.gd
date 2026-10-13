@@ -34,11 +34,18 @@ func _draw() -> void:
 		draw_string(hud.mono, o + Vector2(x0 + 6, dim.y + 22), String(z["n"]) + "  " + String(z["name"]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, hud.DIM)
 	for g in G.actors.graves:
 		var gp: Vector2 = g["p"] / 16.0
-		if m.explored[int(gp.y - 1) * w.W + int(gp.x)] == 0:
+		if m.explored[int(gp.y - 1) * w.W + int(gp.x)] == 0 and not (G.has_up("keen_nose") and not g["opened"]):
 			continue
 		found += 1
 		var q := o + gp * sc
 		draw_rect(Rect2(q - Vector2(2, 4), Vector2(4, 4)), Color(1, 1, 1, 0.25) if g["opened"] else hud.GOLD)
+	if G.has_up("keen_nose"):
+		for q in G.actors.hearts:
+			if not q["taken"]:
+				draw_circle(o + q["p"] / 16.0 * sc + Vector2(0, -2), 3.0, hud.BLOOD)
+		for l in G.actors.papers:
+			if not G.letters.has(l["id"]):
+				draw_rect(Rect2(o + l["p"] / 16.0 * sc - Vector2(2, 4), Vector2(4, 4)), hud.BONE)
 	for k in G.actors.cps:
 		if k["on"]:
 			var q: Vector2 = o + k["p"] / 16.0 * sc

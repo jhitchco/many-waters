@@ -535,6 +535,46 @@ def paper():
     return (n - lowpass(n, 3)) * (0.3 + 0.7 * np.abs(np.sin(2 * np.pi * 7 * t))) * adsr(n.size, 0.02, 0.15)
 
 
+def whistle():
+    t = np.arange(int(SR * 1.6)) / SR
+    chord = sum(np.sin(2 * np.pi * f * t + 2 * np.sin(2 * np.pi * 5 * t)) for f in (415, 523, 622))
+    breath = (rng.uniform(-1, 1, t.size) - lowpass(rng.uniform(-1, 1, t.size), 3)) * 0.4
+    return (chord * 0.5 + breath) * adsr(t.size, 0.08, 0.4)
+
+
+def whip():
+    n = rng.uniform(-1, 1, int(SR * 0.25))
+    t = np.arange(n.size) / SR
+    swish = (lowpass(n, 3) - lowpass(n, 18)) * np.sin(np.pi * np.minimum(1, t / 0.15)) ** 2 * (t < 0.15)
+    crack = (n - lowpass(n, 2)) * np.exp(-np.maximum(0, t - 0.15) * 80) * (t >= 0.15)
+    return swish * 0.5 + crack * 1.4
+
+
+def harpoon():
+    t = np.arange(int(SR * 0.5)) / SR
+    thunk = np.sin(2 * np.pi * (180 - 120 * t) * t) * np.exp(-t * 18)
+    return thunk + lowpass(rng.uniform(-1, 1, t.size), 6) * np.exp(-t * 10) * 0.6
+
+
+def bubbles():
+    x = np.zeros(int(SR * 1.2))
+    for _ in range(26):
+        n = int(SR * rng.uniform(0.03, 0.08))
+        tt = np.arange(n) / SR
+        f = rng.uniform(400, 1400)
+        b = np.sin(2 * np.pi * f * (1 + 2.0 * tt / tt[-1]) * tt) * np.sin(np.pi * tt / tt[-1])
+        i = rng.integers(0, x.size - n)
+        x[i:i + n] += b * rng.uniform(0.3, 1.0)
+    return x
+
+
+def crash():
+    n = rng.uniform(-1, 1, int(SR * 2.2))
+    t = np.arange(n.size) / SR
+    metal = sum(np.sin(2 * np.pi * f * t) * np.exp(-t * d) for f, d in ((143, 2.5), (271, 3), (433, 4), (781, 6))) * 0.4
+    return lowpass(n, 40) * np.exp(-t * 1.6) + metal + (n - lowpass(n, 5)) * np.exp(-t * 8) * 0.5
+
+
 def main():
     m = os.path.join(ROOT, 'assets', 'music')
     for name, fn in (('enfield', enfield), ('greenwich', greenwich), ('dana', dana), ('works', works),
@@ -559,7 +599,9 @@ def main():
     save(os.path.join(s, 'splash_big.wav'), splash_big(), 0.6)
     save(os.path.join(s, 'bark.wav'), bark(), 0.6)
     for name, fn, g in (('snap', snap, 0.7), ('roar', roar, 0.7), ('engine', engine, 0.6), ('crackle', crackle, 0.5),
-                        ('howl', howl, 0.5), ('gurgle', gurgle, 0.5), ('paper', paper, 0.5), ('sting', sting, 0.8)):
+                        ('howl', howl, 0.5), ('gurgle', gurgle, 0.5), ('paper', paper, 0.5), ('sting', sting, 0.8),
+                        ('whistle', whistle, 0.6), ('whip', whip, 0.7), ('harpoon', harpoon, 0.6), ('bubbles', bubbles, 0.5),
+                        ('crash', crash, 0.9)):
         save(os.path.join(s, name + '.wav'), fn(), g)
     save(os.path.join(s, 'flame.wav'), flame(), 0.6)
     print('ambient and effects done')

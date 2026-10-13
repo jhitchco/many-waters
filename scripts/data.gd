@@ -122,6 +122,8 @@ const DEAD := {
 	"phebe": ["Phebe Ellis, d. 1840", "Prescott was the smallest town. We had the most sky."],
 	"fay_z": ["Ezekiel Fay, d. 1801", "Every family here has someone in the ground and no one in the city."],
 	"fay_es": ["Esther Fay, d. 1809", "When you go, take us with you. Do not leave us in the dark water alone."],
+	"first": ["The first grave, no name, no date", "The stone is blank. Whoever lies here was buried before the valley had a name, and was buried facing down."],
+	"cooley": ["Amos Cooley, grave crew, d. 1938", "We followed the roots down to see where they went. I was the only one who didn't come back up."],
 }
 
 ## Named people whose voices are fixed (the rest draw from VOICES by kind).
@@ -201,6 +203,10 @@ const UPGRADES := {
 	"iron_gut": {"title": "Iron Gut", "how": "Every person you take gives you one extra mass."},
 	"regrowth": {"title": "Regrowth", "how": "Below 6 mass, you slowly grow back on your own."},
 	"old_blood": {"title": "Old Blood", "how": "You move through soft earth and water much faster."},
+	"thick_hide": {"title": "Thick Hide", "how": "Bullets, blades and teeth take hold of you half as often."},
+	"steam_lungs": {"title": "Steam Lungs", "how": "When a fling finds nothing to hold, it throws you twice as far."},
+	"keen_nose": {"title": "Keen Nose", "how": "Every unopened grave, paper and root heart shows on your map."},
+	"deep_lungs": {"title": "Deep Lungs", "how": "Underwater, you slowly grow back."},
 }
 
 ## Bosses.
@@ -211,6 +217,15 @@ const BOSSES := {
 	"shovel": {"title": "The Steam Shovel", "sub": "Marion Model 37, Metropolitan District Commission", "hp": 3,
 		"hint": "Tear out its three cables. Stay clear of the bucket.",
 		"name": "Joe Dufresne, shovel operator", "line": "Forty yards an hour. Forty yards an hour, until there's no valley left.", "heart": "iron_gut"},
+	"train": {"title": "The Last Train", "sub": "Boston & Albany No. 112, the last run on the Rabbit Run", "hp": 3,
+		"hint": "Tear down the three supports under the weak span. Then let it come.",
+		"name": "Lyle Purinton, engineer", "line": "Last run on the Rabbit Run. Full steam, they said, and don't stop for anything.", "heart": "steam_lungs"},
+	"houndmaster": {"title": "The Houndmaster", "sub": "Warden Amos Coffin and his pack", "hp": 3,
+		"hint": "His dogs drag you off him. Take the dogs first, then him.",
+		"name": "Warden Amos Coffin, houndmaster", "line": "Find it, girls. Find it and hold it.", "heart": "keen_nose"},
+	"diver": {"title": "The Diver", "sub": "Frank Liss, Commission salvage diver, 1946", "hp": 3,
+		"hint": "Tear his air hose at the brass couplings.",
+		"name": "Frank Liss, salvage diver", "line": "Sent down to check the intake screens. Nobody said the valley was still awake.", "heart": "deep_lungs"},
 }
 
 ## Achievements, kept across playthroughs in user://achievements.json.
@@ -220,7 +235,7 @@ const ACHIEVEMENTS := [
 	["axe", "Woodpecker", "Learn the Axe."],
 	["all_four", "Everything They Knew", "Learn all four memories of the living."],
 	["graves10", "Sexton", "Keep 10 of the dead."],
-	["graves_all", "Every Stone", "Keep all 36 of the dead."],
+	["graves_all", "Every Stone", "Keep every one of the dead."],
 	["frenzy5", "Frenzy", "Take five in a row, each within four seconds of the last."],
 	["chain", "Chain Reaction", "Make a burner's tank take someone else with it."],
 	["foreman", "Firewalker", "Defeat the Foreman."],
@@ -230,6 +245,10 @@ const ACHIEVEMENTS := [
 	["island", "Islander", "Open a grave on a hilltop the flood made into an island."],
 	["glutton", "Glutton", "Grow to 30 mass."],
 	["letters_all", "Archivist", "Read all eight papers left behind."],
+	["train", "Derailed", "Send the last train off the Rabbit Run."],
+	["houndmaster", "Pack Leader", "Defeat the Houndmaster."],
+	["diver", "Cut Loose", "Cut the diver's air."],
+	["hollow", "Where It Began", "Find the Hollow."],
 	["remember", "Say the Towns", "End the game remembering more than you hunger."],
 	["hunger", "Boston Drinks", "End the game hungering more than you remember."],
 ]
@@ -262,6 +281,14 @@ const MORE_FLASHBACKS := {
 				"act": ["I knocked three times.", "It knocked three times again. Closer. Then all along the tunnel, everywhere at once."]},
 		],
 		"end": "Harold Pike signed off on the lining that afternoon. He asked to be moved to the Boston office."},
+	"cooley": {"title": "Amos Cooley, grave crew", "when": "Under Enfield · November 1938", "row": 1, "dark": 0.86,
+		"beats": [
+			{"at": 66, "row_from": 126, "say": ["We followed the roots down from the Shaw plot. Down past the cellar holes. Down past the river.", "The lantern started to shake. So did my hands."],
+				"to": 88, "goal": "Follow the roots", "act": ["They were warm. They were all going the same way, like rivers to the sea."]},
+			{"say": ["At the bottom there was a room made of roots, and in the room something was beating."], "to": 104, "goal": "Go closer",
+				"act": ["It was a heart. Bigger than a barn. It beat once while I watched.", "I understood then that it was not under the valley. It was the valley."]},
+		],
+		"end": "Amos Cooley's lantern was found at the top of the shaft. The Commission recorded him as having left for Worcester."},
 	"phebe": {"title": "Phebe Ellis", "when": "Prescott · August 1840", "row": 5, "dark": 0.55,
 		"beats": [
 			{"at": 364, "row_from": 80, "say": ["Prescott was the smallest town. We had the most sky."],

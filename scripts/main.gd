@@ -19,6 +19,7 @@ var hud: Control
 var sfx: Node
 var fb: Node2D
 var boss: Node2D
+var boss2: Node2D
 var view_mat: ShaderMaterial
 
 var cp_pos := Vector2.ZERO
@@ -61,6 +62,7 @@ func _ready() -> void:
 	world = _node(preload("res://scripts/world.gd"), svp)
 	actors = _node(preload("res://scripts/actors.gd"), svp)
 	boss = _node(preload("res://scripts/boss.gd"), svp)
+	boss2 = _node(preload("res://scripts/boss2.gd"), svp)
 	creature = _node(preload("res://scripts/creature.gd"), svp)
 	front = _node(preload("res://scripts/front.gd"), svp)
 	water = _node(preload("res://scripts/water.gd"), svp)
@@ -78,11 +80,12 @@ func _ready() -> void:
 	add_child(hud_layer)
 	hud = preload("res://scripts/hud.gd").new()
 	hud_layer.add_child(hud)
-	G.world = world; G.boss = boss; G.actors = actors; G.creature = creature; G.fx = fx; G.cam = cam; G.hud = hud; G.sfx = sfx
+	G.world = world; G.boss = boss; G.boss2 = boss2; G.actors = actors; G.creature = creature; G.fx = fx; G.cam = cam; G.hud = hud; G.sfx = sfx
 	G.reset()
 	world.load_map()
 	actors.load_entities()
 	boss.setup(actors.foreman_p, actors.shovel_p)
+	boss2.setup(actors.train_p, actors.hound_p, actors.diver_p)
 	hud.build()
 	cam.limit_left = 0
 	cam.limit_top = 0
@@ -119,6 +122,7 @@ func new_game() -> void:
 	world.reset_tiles()
 	actors.load_entities()
 	boss.setup(actors.foreman_p, actors.shovel_p)
+	boss2.setup(actors.train_p, actors.hound_p, actors.diver_p)
 	fx.clear()
 	regrow_t = 0.0
 	explored.fill(0)
@@ -214,8 +218,21 @@ func _physics_process(delta: float) -> void:
 				creature.try_fling(_aim())
 		creature.physics(delta)
 	actors.physics(delta)
-	boss.physics(delta)
+	var bar: Array = boss.physics(delta)
+	var bar2: Array = boss2.physics(delta)
+	if bar.is_empty():
+		bar = bar2
+	if bar.is_empty():
+		hud.boss_bar("", 0, 0)
+	else:
+		hud.boss_bar(bar[0], bar[1], bar[2])
 	world.burn_update(delta)
+	if G.has_up("deep_lungs") and creature.in_water and not creature.dead and creature.mass < 20:
+		regrow_t += delta
+		if regrow_t > 6.0:
+			regrow_t = 0.0
+			creature.mass += 1
+			fx.float_text(creature.position + Vector2(0, -creature.r - 8), "+1 mass", Color("9cdfe0"))
 	if not creature.dead and creature.vel.length() < 10.0 and randf() < delta / 7.0:
 		sfx.play("gurgle", 0.2)
 	if G.has_up("regrowth") and not creature.dead and creature.mass < 6:
@@ -295,6 +312,19 @@ func try_take() -> void:
 			"operator":
 				boss.take_operator()
 		return
+	var bt2 = boss2.target(creature.position, creature.r + 60.0)
+	if bt2 != null:
+		match bt2["kind"]:
+			"post", "valve":
+				creature.grab = {"kind": bt2["kind"], "i": bt2["i"], "t": 0.0, "ref": {"p": bt2["p"]}}
+				sfx.play("swing")
+			"hound":
+				take_cd = 0.6
+				creature.fling = {"p": bt2["p"], "t": 0.6, "whiff": true}
+				boss2.hit_hound()
+			"diver":
+				boss2.take_diver()
+		return
 	var t = actors.find_target(creature.position, creature.r + 60.0)
 	if t == null:
 		return
@@ -330,6 +360,17 @@ func _update_grab(delta: float) -> void:
 			creature.grab = null
 		elif g["t"] > 1.0:
 			boss.cut_cable(g["i"])
+			creature.grab = null
+		return
+	if g["kind"] == "post" or g["kind"] == "valve":
+		g["t"] += delta
+		ref["p"] = boss2.grab_point(g["kind"], g["i"], creature.position)
+		if randf() < 0.4:
+			fx.burst(ref["p"], 1, [Color("a0703c"), Color("ffffff")], 50.0, 200.0, 1.0, 0.4)
+		if not boss2.grab_valid(g["kind"], g["i"]) or (ref["p"] as Vector2).distance_to(creature.position) > creature.r + 110.0 or creature.dead:
+			creature.grab = null
+		elif g["t"] > boss2.grab_time(g["kind"]):
+			boss2.grab_finish(g["kind"], g["i"])
 			creature.grab = null
 		return
 	if g["kind"] == "q":
@@ -380,6 +421,7 @@ func consume(ref: Dictionary, kind: String) -> void:
 	fx.gore(center)
 	G.shake = maxf(G.shake, 4.0)
 	sfx.play("squelch")
+	sfx.play_ex("roar", 1.6 - minf(0.6, creature.mass * 0.02), -9.0)
 	fx.float_text(creature.position + Vector2(0, -creature.r - 8), "+1 mass", Color("e0566a"))
 	if kind == "a":
 		ref["grabbed"] = false
@@ -489,6 +531,9 @@ func hurt(n: int, kind: String = "") -> void:
 	if kind == "fire" and G.has_up("wet_bark") and randf() < 0.5:
 		creature.inv = 0.4
 		return
+	if kind != "fire" and G.has_up("thick_hide") and randf() < 0.5:
+		creature.inv = 0.4
+		return
 	creature.mass -= n
 	creature.inv = 0.9
 	G.shake = maxf(G.shake, 4.0)
@@ -570,6 +615,8 @@ func _region() -> void:
 			break
 	if found != "" and found != region_name:
 		hud.show_region(found)
+		if found == "The Hollow":
+			G.unlock("hollow")
 	region_name = found
 
 
@@ -599,6 +646,8 @@ func _map_color(v: int) -> Color:
 		Tiles.CONC: return Color("7d8a86")
 		Tiles.BOARDS: return Color("b8955a")
 		Tiles.CLIFF: return Color("2a2f3e")
+		Tiles.TRESTLE: return Color("7a5030")
+		Tiles.ROOT: return Color("8c1c34")
 	return Color("4f5a70")
 
 
@@ -631,7 +680,7 @@ func _refresh_hud() -> void:
 func _pick_audio() -> void:
 	const AMB := {"enfield": "birds", "greenwich": "birds_dusk", "dana": "birds", "works": "machines", "basin": "night"}
 	var z: Dictionary = Data.ZONES[maxi(0, G.zone)]
-	if (boss.foreman["alive"] and boss.in_foreman_arena(creature.position)) or (boss.shovel["alive"] and boss.in_shovel_arena(creature.position)):
+	if (boss.foreman["alive"] and boss.in_foreman_arena(creature.position)) or (boss.shovel["alive"] and boss.in_shovel_arena(creature.position)) or boss2.any_active(creature.position):
 		sfx.set_music("boss")
 	elif G.flood and G.water_y < G.SURF_Y:
 		sfx.set_music("basin")
@@ -653,6 +702,19 @@ func _hint() -> String:
 			"boss_f": return "SPACE  tear at his tanks"
 			"cable": return "SPACE  tear out the cable"
 			"operator": return "SPACE  take the operator"
+	var bt2 = boss2.target(creature.position, creature.r + 60.0)
+	if bt2 != null:
+		match bt2["kind"]:
+			"post": return "SPACE  tear down the support"
+			"valve": return "SPACE  tear the air hose"
+			"hound": return "SPACE  take the houndmaster"
+			"diver": return "SPACE  take the diver"
+	if boss2.in_train_zone(creature.position):
+		return Data.BOSSES["train"]["hint"] if boss2.train["hp"] > 0 else "The supports are down. Let the train come onto the span."
+	if boss2.hound["alive"] and boss2.hound["active"] and (boss2.hound["p"] as Vector2).distance_to(creature.position) < 230.0:
+		return Data.BOSSES["houndmaster"]["hint"]
+	if boss2.diver_present() and boss2.diver["active"]:
+		return Data.BOSSES["diver"]["hint"]
 	if boss.in_foreman_arena(creature.position):
 		return Data.BOSSES["foreman"]["hint"]
 	if boss.shovel["alive"] and boss.in_shovel_arena(creature.position):
@@ -724,9 +786,11 @@ func _finish() -> void:
 func save_game() -> void:
 	var d := {
 		"ab": G.ab, "counts": G.counts, "taken": G.taken, "kept": G.kept, "voices": G.voices,
-		"version": 4, "memories": G.memories_seen.keys(), "upgrades": G.upgrades.keys(), "deaths": G.deaths, "letters": G.letters.keys(),
+		"version": 5, "memories": G.memories_seen.keys(), "upgrades": G.upgrades.keys(), "deaths": G.deaths, "letters": G.letters.keys(),
 		"hearts": actors.hearts.map(func(q): return [q["id"], q["p"].x, q["p"].y, q["taken"]]),
 		"foreman": boss.foreman["alive"], "shovel": [boss.shovel["alive"], boss.shovel["op"], boss.shovel["cables"]],
+		"train": [boss2.train["alive"], boss2.train["posts"]], "hound": [boss2.hound["alive"], boss2.hound["hp"]],
+		"diver": [boss2.diver["alive"], boss2.diver["valves"]],
 		"flood": G.flood, "water_y": G.water_y, "zone_seen": G.zone_seen, "time": G.time,
 		"mass": creature.mass, "cp": [cp_pos.x, cp_pos.y], "cp_mass": cp_mass,
 		"dead": actors.people.filter(func(h): return not h["alive"]).map(func(h): return h["id"]),
@@ -743,7 +807,7 @@ func save_game() -> void:
 func load_game() -> void:
 	var raw := FileAccess.get_file_as_string(G.SAVE_PATH)
 	var d = JSON.parse_string(raw)
-	if typeof(d) != TYPE_DICTIONARY or int(d.get("version", 0)) != 4:
+	if typeof(d) != TYPE_DICTIONARY or int(d.get("version", 0)) != 5:
 		hud.toast("That save is from an older map, so you wake at the beginning.")
 		return
 	for m in d["memories"]:
@@ -761,6 +825,17 @@ func load_game() -> void:
 	boss.shovel["op"] = bool(d["shovel"][1])
 	boss.shovel["cables"] = d["shovel"][2]
 	boss.shovel["hp"] = boss.shovel["cables"].count(true)
+	boss2.train["alive"] = bool(d["train"][0])
+	boss2.train["posts"] = d["train"][1]
+	boss2.train["hp"] = boss2.train["posts"].count(true)
+	if not boss2.train["alive"]:
+		for x in range(boss2.SPAN[0], boss2.SPAN[1] + 1):
+			world.set_tile(x, 44, Tiles.E)
+	boss2.hound["alive"] = bool(d["hound"][0])
+	boss2.hound["hp"] = int(d["hound"][1])
+	boss2.diver["alive"] = bool(d["diver"][0])
+	boss2.diver["valves"] = d["diver"][1]
+	boss2.diver["hp"] = boss2.diver["valves"].count(true)
 	for k in d["ab"]:
 		G.ab[k] = bool(d["ab"][k])
 	for k in d["counts"]:
@@ -938,6 +1013,68 @@ func _autotest() -> void:
 	try_take()
 	await _frames(80)
 	report.call("a root heart grants its upgrade", G.has_up("long_reach") and creature.reach() > 120.0, "reach=%.0f" % creature.reach())
+	# the Last Train
+	_tp(240, 58.0, 12)
+	await _frames(10)
+	for i in 3:
+		creature.grab = null
+		creature.position = Vector2(boss2._post_x(i) - 14.0, 54.0 * TS)
+		try_take()
+		for f in 85:
+			creature.position = Vector2(boss2._post_x(i) - 14.0, 54.0 * TS)
+			creature.vel = Vector2.ZERO
+			await get_tree().physics_frame
+	report.call("tearing the supports readies the span", boss2.train["hp"] <= 0, "hp=%d" % boss2.train["hp"])
+	var waited := 0
+	while boss2.train["alive"] and waited < 1500:
+		creature.position = Vector2(239.0 * TS, 58.0 * TS)
+		await get_tree().physics_frame
+		waited += 1
+	report.call("the last train goes over the edge", not boss2.train["alive"] and world.tile(245, 44) == Tiles.E, "after %d frames" % waited)
+	# the Houndmaster
+	var hm: Vector2 = boss2.hound["p"]
+	_tp(hm.x / TS + 2.5, hm.y / TS - 1.0, 12)
+	await _frames(30)
+	for i in 6:
+		if not boss2.hound["alive"]:
+			break
+		for dog in boss2.hound["pack"]:
+			dog["alive"] = false
+		creature.position = boss2.hound["p"] + Vector2(30, -14)
+		take_cd = 0.0
+		try_take()
+		await _frames(40)
+	report.call("the Houndmaster falls once his dogs are down", not boss2.hound["alive"], "hp=%d" % boss2.hound["hp"])
+	# the Diver
+	G.flood = true
+	G.water_y = G.FLOOD_FULL_Y
+	var dvp: Vector2 = boss2.diver["p"]
+	_tp(dvp.x / TS, dvp.y / TS - 4.0, 12)
+	await _frames(20)
+	for i in 3:
+		creature.grab = null
+		creature.position = boss2.valve_points()[i] + Vector2(8, 8)
+		try_take()
+		for f in 70:
+			creature.position = boss2.valve_points()[i] + Vector2(8, 8)
+			creature.vel = Vector2.ZERO
+			await get_tree().physics_frame
+	report.call("tearing the hose leaves the diver without air", boss2.diver["hp"] <= 0, "hp=%d" % boss2.diver["hp"])
+	creature.position = boss2._helmet() + Vector2(10, 0)
+	await _frames(3)
+	try_take()
+	await _frames(10)
+	report.call("taking the diver ends the fight", not boss2.diver["alive"] and actors.hearts.any(func(q): return q["id"] == "deep_lungs"), "")
+	G.flood = false
+	G.water_y = 1.0e6
+	# the Hollow
+	G.ab["level"] = true
+	_tp(70.5, 121.0, 6)
+	creature.try_read()
+	await _frames(90)
+	await _hold(Vector2.DOWN, 120)
+	report.call("a false floor drops into the Hollow", creature.position.y > 125 * TS, str(creature.position / TS))
+	G.ab["level"] = false
 	# gates
 	_tp(84.5, 59.4, 8)
 	await _hold(Vector2.RIGHT, 240)
@@ -1016,6 +1153,8 @@ func _shots(dir: String) -> void:
 		["04_quabbin_hill", 30.0, 45.0, false], ["05_greenwich", 128.0, 58.0, false], ["06_crypt", 112.0, 70.0, false],
 		["07_dana", 236.0, 58.0, false], ["08_millrace", 215.0, 104.0, false], ["09_spillway_cut", 296.0, 70.0, false],
 		["15_foreman", 79.0, 58.0, false], ["16_shovel", 294.0, 74.0, false], ["17_burner", 101.0, 58.5, false],
+		["20_train", 244.0, 52.0, false], ["21_kennels", 194.0, 58.0, false], ["22_hollow", 88.0, 131.0, false],
+		["23_diver", 386.0, 92.0, true],
 		["10_basin", 370.0, 95.0, false], ["11_flooded_dana", 204.0, 50.0, true], ["12_intake", 400.0, 48.0, true],
 	]
 	for s in spots:
@@ -1031,6 +1170,19 @@ func _shots(dir: String) -> void:
 		get_viewport().get_texture().get_image().save_png(dir.path_join(s[0] + ".png"))
 	G.flood = false
 	G.water_y = 1.0e6
+	for m in [6, 28]:
+		_tp(44.0, 58.5, m)
+		creature.inv = 0.0
+		cam.position = creature.position
+		cam.reset_smoothing()
+		await _frames(60)
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(dir.path_join("24_creature_mass%d.png" % m))
+	hud.toggle_overlay("pause")
+	await _frames(10)
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(dir.path_join("25_pause.png"))
+	hud.toggle_overlay("pause")
 	fb.start("marion")
 	await _frames(200)
 	await RenderingServer.frame_post_draw

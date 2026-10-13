@@ -18,6 +18,7 @@ Tile legend
   w  timber jam (Axe)                        g  granite (Charge)
   f  false stone (Level)                     c  concrete (not climbable)
   X  sheer cliff (not climbable)             b  rotten boards (break under a heavy body)
+  t  trestle deck (climbable)                h  living root (climbable)
 """
 import itertools, json, math, os, sys
 from collections import deque
@@ -45,19 +46,20 @@ def carve(x0, y0, x1, y1):
     fill(x0, y0, x1, y1, '.')
 
 
-def ground(x, frm=1):
+def ground(x, frm=1, deck=False):
+    """First row whose top a walker could stand on. Skips the trestle deck unless asked."""
     for y in range(max(1, frm), H):
-        if g[y][x] != '.' and g[y - 1][x] == '.':
+        if g[y][x] != '.' and (deck or g[y][x] != 't') and g[y - 1][x] == '.':
             return y
     raise ValueError(f'no ground at x={x} from row {frm}')
 
 
-def ent(t, x, frm=1, **kw):
-    ents.append(dict(t=t, x=x, y=ground(x, frm), **kw))
+def ent(t, x, frm=1, deck=False, **kw):
+    ents.append(dict(t=t, x=x, y=ground(x, frm, deck), **kw))
 
 
-def dec(k, x, frm=1, layer='back', **kw):
-    decor.append(dict(k=k, x=x, y=ground(x, frm), layer=layer, **kw))
+def dec(k, x, frm=1, layer='back', deck=False, **kw):
+    decor.append(dict(k=k, x=x, y=ground(x, frm, deck), layer=layer, **kw))
 
 
 def region(name, x0, y0, x1, y1):
@@ -211,8 +213,22 @@ def build():
     fill(168, 118, 175, 121, '#')                                         # a crawlway along the floor, row 122
     fill(124, 123, 125, 123, 'f'); carve(121, 124, 128, 128)              # a sealed room under the road (Root Heart)
 
+    # ---------------- the Hollow: living roots at the bottom of the valley, where it began
+    fill(58, 124, 116, 134, 'h')
+    carve(61, 125, 113, 133)
+    for x, a, b in ((72, 125, 128), (84, 130, 133), (96, 125, 127), (106, 130, 133)):
+        fill(x, a, x + 1, b, 'h')
+    fill(70, 123, 71, 124, 'f')                        # a false floor in the deep road (Level)
+    fill(104, 123, 105, 124, 'd')                      # or dig down (Shovel)
+
+    # ---------------- the Rabbit Run: the old railroad on a trestle high over Dana
+    fill(233, 44, 265, 44, 't')
+    carve(266, 41, 269, 43); fill(266, 41, 267, 43, 'w')   # rail tunnel through the ridge, jammed with timber (Axe)
+    fill(270, 44, 278, 44, 't')                        # the works siding
+
     # ---------------- regions (named places)
-    for args in (("The lair", 4, 110, 30, 124), ("The Under-Valley", 8, 90, 86, 109), ("The deep road", 44, 110, 198, 124),
+    for args in (("The Hollow", 58, 123, 116, 135), ("The Rabbit Run", 231, 34, 279, 46), ("The kennels", 184, 46, 198, 59),
+                 ("The lair", 4, 110, 30, 124), ("The Under-Valley", 8, 90, 86, 109), ("The deep road", 44, 110, 198, 124),
                  ("The root cellar", 28, 72, 64, 86), ("The Rich farm", 2, 40, 18, 61), ("The Shaw family plot", 3, 62, 16, 70),
                  ("Quabbin Hill", 19, 30, 41, 59), ("Enfield village", 42, 40, 68, 59), ("Enfield town hall cellar", 49, 62, 61, 68),
                  ("The sawmill", 68, 40, 85, 59), ("The Swift River caves", 58, 74, 130, 86),
@@ -232,6 +248,9 @@ def build():
     for x in (100, 200, 330): ent('H', x)                             # tracker dogs
     ent('M', 75, 50)                                                  # the Foreman
     ent('Z', 289, 61)                                                 # the steam shovel
+    ent('Y', 236, 30, deck=True)                                                 # the last train (on the trestle)
+    ent('V', 191)                                                     # the houndmaster
+    ent('X', 392, 80)                                                 # the diver (after the flood)
     for x in (96, 124, 134, 146, 158): ent('B', x)
     ent('P', 100)
     for x in (192, 200, 218, 236, 250): ent('K', x, id='ballou' if x == 236 else None)
@@ -269,6 +288,7 @@ def build():
         ('kittredge', 280, 100),                                       # diversion tunnel
         ('works_plot', 272, 1),
         ('phebe', 356, 80), ('fay_z', 370, 80), ('fay_es', 390, 80),   # drowned Prescott
+        ('first', 64, 126), ('cooley', 110, 126),                      # the Hollow
     ):
         ent('T', x, frm, id=gid)
 
@@ -279,7 +299,8 @@ def build():
         ent('C', x, frm)                                               # cellar holes
     for x, frm, after in ((13, 1, 'axe'), (40, 1, 'axe'), (86, 1, 'axe'), (286, 1, ''), (334, 1, ''), (326, 1, '')):
         ent('F', x, frm, after=after)                                  # brush fires
-    for hid, x, frm in (('long_reach', 29, 30), ('quick_tendons', 70, 86), ('regrowth', 126, 124), ('old_blood', 161, 40)):
+    for hid, x, frm in (('long_reach', 29, 30), ('quick_tendons', 70, 86), ('regrowth', 126, 124), ('old_blood', 161, 40),
+                        ('thick_hide', 90, 126)):
         ent('Q', x, frm, id=hid)                                       # Root Hearts
     for lid, x, frm in (('notice', 7, 1), ('diary', 56, 64), ('sermon', 110, 63), ('ledger', 145, 55), ('survey', 208, 97),
                         ('telegram', 333, 1), ('child', 161, 62), ('last', 372, 80)):
@@ -310,6 +331,12 @@ def build():
     dec('p:13', 112, 63); dec('p:13', 216, 112); dec('p:13', 72, 50)
     for x, frm in ((14, 113), (142, 40), (218, 112), (358, 80)):
         dec('p:21', x, frm)                                            # memory stones
+    dec('p:24', 222, 52); dec('p:25', 262); dec('p:29', 277, 30, deck=True)       # water tower, signal, buffer stop
+    for x in (186, 196): dec('p:26', x)                                # kennel pens
+    dec('p:20', 189)
+    for x, frm in ((66, 126), (78, 126), (92, 126), (102, 126), (112, 126)): dec('p:27', x, frm, 'front')
+    for x, frm in ((74, 129), (98, 128)): dec('p:28', x, frm)          # egg sacs
+    dec('p:30', 366, 80); dec('p:31', 300, 1)
     for x in (4, 66, 98, 124): dec('p:9', x)
     for x in (182, 220, 252): dec('p:14', x)
     for x in (44, 60, 80): dec('p:8', x)
@@ -321,7 +348,7 @@ def build():
 
 
 # ---------------------------------------------------------------- checking
-CLING = set('#dwgfb')
+CLING = set('#dwgfbth')
 DIRS = [(math.cos(a), math.sin(a)) for a in (i * math.pi / 8 for i in range(16))]
 
 
@@ -463,7 +490,7 @@ def preview():
         from PIL import Image
     except ImportError:
         return
-    col = {'.': (20, 26, 40), '#': (70, 80, 96), 'd': (120, 84, 52), 'w': (150, 96, 40), 'g': (190, 170, 170),
+    col = {'t': (110, 70, 40), 'h': (150, 40, 60), '.': (20, 26, 40), '#': (70, 80, 96), 'd': (120, 84, 52), 'w': (150, 96, 40), 'g': (190, 170, 170),
            'f': (90, 100, 120), 'c': (120, 130, 125), 'X': (40, 44, 58), 'b': (170, 130, 70)}
     im = Image.new('RGB', (W, H))
     for y in range(H):
@@ -471,7 +498,7 @@ def preview():
             c = col[g[y][x]]
             if g[y][x] == '.' and y >= FLOOD_ROW: c = (24, 50, 70)
             im.putpixel((x, y), c)
-    mark = {'U': (255, 160, 40), 'H': (160, 110, 60), 'M': (255, 0, 0), 'Z': (255, 255, 255), 'Q': (255, 0, 120), 'L': (255, 255, 255), 'R': (220, 40, 40), 'B': (140, 90, 40), 'K': (210, 190, 120), 'E': (60, 100, 220), 'G': (60, 160, 60),
+    mark = {'Y': (255, 255, 255), 'V': (255, 255, 255), 'X': (255, 255, 255), 'U': (255, 160, 40), 'H': (160, 110, 60), 'M': (255, 0, 0), 'Z': (255, 255, 255), 'Q': (255, 0, 120), 'L': (255, 255, 255), 'R': (220, 40, 40), 'B': (140, 90, 40), 'K': (210, 190, 120), 'E': (60, 100, 220), 'G': (60, 160, 60),
             'P': (250, 250, 250), 'T': (255, 220, 80), 'W': (60, 220, 230), 'C': (255, 60, 160), 'I': (255, 255, 0),
             '@': (255, 0, 255), 'D': (200, 140, 90), 'S': (230, 230, 230), 'F': (255, 120, 0)}
     for e in ents:
@@ -508,6 +535,11 @@ def main():
         n = sum(1 for e in ents if e['t'] == t and near(e, cells))
         print(f"from the start, {a:7s} can be earned first: {'yes' if n >= 3 else 'NO'} ({n} reachable)")
         bad |= n < 3
+    flood_only = {'bartlett', 'ellis_n', 'old_blood'}
+    early = set().union(*[set(fr) for _, fl, fr in log if not fl])
+    leak = flood_only & early
+    print('island graves reachable before the flood:', sorted(leak) or 'none')
+    bad |= bool(leak)
     routes = works_routes()
     for k, v in routes.items():
         print(f"works entrance by {k}: {'yes' if v else 'NO'}")

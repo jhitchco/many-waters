@@ -9,7 +9,9 @@ scaled 3x for a 16-bit look; the interface renders at full resolution.
 
 ## Run it
 
-Open the folder in Godot 4.7 and press F5, or from a terminal:
+Play in a browser at https://jhitchco.github.io/many-waters/ , or double-click
+`Play Many Waters.bat` (it uses the Godot that `winget install GodotEngine.GodotEngine`
+installs). You can also open the folder in Godot 4.7 and press F5, or from a terminal:
 
 ```
 godot --path .
@@ -53,15 +55,23 @@ godot --path .
 - **Bosses.** *The Foreman* in the Enfield sawmill is a wall of fire from the front: get behind
   him and tear at his tanks while he slowly turns. *The Steam Shovel* in the spillway cut sweeps
   and slams its bucket: tear out its three cables, then take the operator from the wreck.
-  Each leaves a Root Heart.
-- **Root Hearts.** Six of them, hidden or guarded. Each is a permanent upgrade: Long Reach,
+  *The Last Train* runs the Rabbit Run trestle high over Dana: tear down the three supports
+  under its weak span and let it come. *The Houndmaster* in the Dana kennels whistles up his
+  pack; his dogs drag you off him, so take them first. *The Diver* walks drowned Prescott after
+  the flood: tear his air hose at its brass couplings. Each leaves a Root Heart.
+- **New places.** The Rabbit Run, an old railroad trestle above Dana with a rail tunnel into the
+  Works; the kennels; and the Hollow, a cave of living roots at the very bottom of the valley,
+  under the deep road, reached through a false floor or by digging. Something is beating there.
+- **Root Hearts.** Ten of them, hidden or guarded. Each is a permanent upgrade: Long Reach,
   Wet Bark (fire resistance), Quick Tendons (faster flings), Iron Gut (more mass per person),
-  Regrowth, and Old Blood (fast through earth and water).
-- **Eight memories** to live through and **eight papers** to read: an eviction notice,
+  Regrowth, Old Blood (fast through earth and water), Thick Hide (resist bullets, blades and
+  teeth), Steam Lungs (bigger air bursts), Keen Nose (graves, papers and hearts on the map),
+  and Deep Lungs (regrow underwater).
+- **Nine memories** to live through and **eight papers** to read: an eviction notice,
   Marion's diary, the last sermon, the grave-removal ledger, Ballou's field book, a telegram
   from Boston, a child's letter, and a last letter from Prescott.
 - **Frenzy.** Take people in quick succession for a combo; from the third, each one gives extra mass.
-- **Achievements** (17) are kept across playthroughs and listed on the pause screen. The ending
+- **Achievements** (21) are kept across playthroughs and listed on the pause screen. The ending
   screen shows your time, deaths and how much of the valley you found.
 - **The flood.** Drop into the basin and the gates close. The whole valley fills to
   530 feet, and three sheer hilltops become islands you can finally reach.
@@ -86,6 +96,7 @@ scripts/bg.gd           parallax backdrops per town
 scripts/data.gd         story text: towns, memories, every voice, the playable memories
 scripts/flashback.gd    plays a memory as a person from the valley's past
 scripts/boss.gd         the Foreman and the Steam Shovel
+scripts/boss2.gd        the Last Train, the Houndmaster and the Diver
 scripts/view.gdshader   sepia, lantern light and cave darkness over the game view
 data/world.txt          the map, one character per 16px tile (generated)
 data/entities.json      people, graves, springs, cellar holes (generated)

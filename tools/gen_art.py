@@ -128,6 +128,22 @@ PAL = {
     # steam shovel (oxide-red house, black iron running gear)
     'ox0': '#2a0e14', 'ox1': '#561c1c', 'ox2': '#863022', 'ox3': '#b0502e', 'ox4': '#d67e48',
     'iron0': '#0e0e14', 'iron1': '#20202a', 'iron2': '#363644', 'iron3': '#555566', 'iron4': '#7c7c90',
+    # ---- expansion 2: railroad trestle, living root, diver, houndmaster, locomotive boss
+    # creosote-stained timber (violet shadows, warm amber-brown lights)
+    'cre0': '#110a12', 'cre1': '#241820', 'cre2': '#3a2a2a', 'cre3': '#574234', 'cre4': '#7c6248', 'cre5': '#a48660',
+    # living root / sinew (crimson-brown)
+    'lr0': '#1c0614', 'lr1': '#3e0e1e', 'lr2': '#6c1c2a', 'lr3': '#9a3236', 'lr4': '#c45a46', 'lr5': '#ec9a74',
+    # diving-helmet copper
+    'cop0': '#3a1418', 'cop1': '#76321e', 'cop2': '#b45e2a', 'cop3': '#e4964a', 'cop4': '#ffd286',
+    # diving-suit canvas
+    'cnv0': '#3e3640', 'cnv1': '#6e6458', 'cnv2': '#a09478', 'cnv3': '#d0c4a0',
+    # waxed-cotton coat (olive)
+    'wax0': '#151a18', 'wax1': '#2a3024', 'wax2': '#474c30', 'wax3': '#6c6c40',
+    # verdigris, signal green
+    'verd0': '#1e4448', 'verd1': '#3a8478', 'verd2': '#7cc8a4',
+    'sig_g0': '#16603a', 'sig_g1': '#3ed07a', 'sig_g2': '#c8ffd4',
+    # coal smoke (grey-violet)
+    'smk0': '#3c3448', 'smk1': '#625a72', 'smk2': '#8e869c', 'smk3': '#bcb4c4',
 }
 
 # ----------------------------------------------------------------------------
@@ -480,7 +496,7 @@ def save_img(img, name):
 
 
 # ============================================================================
-# TILES  (128x192, 16x16 cells)
+# TILES  (128x224, 16x16 cells)
 # ============================================================================
 T = 16
 ROCK_RAMP = ['rock1', 'rock2', 'rock3', 'rock4']
@@ -1007,20 +1023,22 @@ def cave_tiles(rng):
 
 def build_tiles():
     rng = np.random.default_rng(SEED)
-    sheet = Canvas(128, 192)
+    sheet = Canvas(128, 224)
     rb = rock_base(rng)
     rows = [rock_tiles(rng, base=rb), dirt_tiles(rng), timber_tiles(rng), granite_tiles(rng),
             rock_tiles(rng, false_tell=True, base=rb), concrete_tiles(rng), cliff_tiles(rng),
             board_tiles(rng), grass_tiles(rng), ceiling_tiles(rng), special_tiles(rng), cave_tiles(rng)]
+    rows += [trestle_deck_tiles(), living_root_tiles()]       # expansion 2 (own seeds)
     for ri, row in enumerate(rows):
         for ci, t in enumerate(row):
             sheet.a[ri * T:(ri + 1) * T, ci * T:(ci + 1) * T] = t.a
     sheet.save('tiles.png')
+    build_tiles.last = sheet
     return sheet
 
 
 # ============================================================================
-# PEOPLE  (128x192: 8 cols x 8 rows of 16x24, facing right)
+# PEOPLE  (128x240: 8 cols x 10 rows of 16x24, facing right)
 # ============================================================================
 ROLES = {
     'woodcutter': dict(torso='plaid', sleeve=('plaid_k', 'plaid_r', 'plaid_rl'), pants=('jean0', 'jean1', 'jean2'),
@@ -1393,7 +1411,7 @@ def draw_person(role, P):
 
 
 def build_people():
-    sheet = Canvas(128, 192)
+    sheet = Canvas(128, 240)
     for ri, role in enumerate(ROLE_ORDER):
         poses = WALK + [IDLE, STARTLED, GRABBED, ATTACK[role]]
         for ci, P in enumerate(poses):
@@ -1401,6 +1419,9 @@ def build_people():
     for ri, boss in ((6, False), (7, True)):      # burner, foreman
         for ci in range(8):
             sheet.blit(draw_burner(ci, boss), ci * 16, ri * 24)
+    for ci in range(8):                            # diver, houndmaster
+        sheet.blit(draw_diver(ci), ci * 16, 8 * 24)
+        sheet.blit(draw_houndmaster(ci), ci * 16, 9 * 24)
     sheet.save('people.png')
     return sheet
 
@@ -1512,7 +1533,7 @@ def build_animals():
 
 
 # ============================================================================
-# PROPS  (256x96: 8x3 cells of 32x32, bottom-aligned, centred)
+# PROPS  (256x128: 8x4 cells of 32x32, bottom-aligned, centred)
 # ============================================================================
 SLATE = ['slate0', 'slate1', 'slate2', 'slate3', 'slate4']
 
@@ -1932,12 +1953,14 @@ def p_boulder():
 
 
 def build_props():
-    sheet = Canvas(256, 96)
+    sheet = Canvas(256, 128)
     items = [p_headstone(), p_open_grave(), p_spring(0), p_spring(1), p_cellar(False), p_cellar(True),
              p_stake(), p_logpile(), p_stump(), p_wall(), p_fern(), p_flowers(), p_mushrooms(), p_lantern(),
              p_fence(), p_boulder()]
     items += [p_root_heart(False), p_root_heart(True), p_charred_timber(), p_kerosene_drum(), p_kennel(),
               p_memory_stone(), p_cable_drum(), p_scorch()]
+    items += [p_water_tower(), p_signal(), p_kennel_pen(), p_root_cluster(), p_egg_sac(), p_bumper(),
+              p_diving_helmet(), p_dynamite_crate()]
     for i, it in enumerate(items):
         sheet.a[(i // 8) * 32:(i // 8) * 32 + 32, (i % 8) * 32:(i % 8) * 32 + 32] = it.a
     sheet.save('props.png')
@@ -4460,6 +4483,1444 @@ def build_boss_shovel():
 
 
 # ============================================================================
+# EXPANSION ART 2: trestle deck + living-root tiles (tiles rows 12-13), diver +
+# houndmaster (people rows 8-9), props row 3, and the locomotive boss
+# (boss_train.png/.json). Every drawing makes its own seeded RNG and is only
+# appended after the existing rows, so nothing above changes.
+# ============================================================================
+CRE = ['cre0', 'cre1', 'cre2', 'cre3', 'cre4']
+LR = ['lr0', 'lr1', 'lr2', 'lr3', 'lr4', 'lr5']
+COP = ['cop0', 'cop1', 'cop2', 'cop3', 'cop4']
+CNV = ('cnv0', 'cnv1', 'cnv2')
+WAX = ('wax0', 'wax1', 'wax2')
+SMK = ['smk0', 'smk1', 'smk2', 'smk3']
+RED = ['red0', 'red1', 'red2', 'red3', 'red4']
+
+GLYPH3 = {
+    'B': ["11.", "1.1", "11.", "1.1", "11."],
+    '&': [".1...", "1.1..", ".1...", "1.1.1", ".1.1."],
+    'A': [".1.", "1.1", "111", "1.1", "1.1"],
+    'D': ["11.", "1.1", "1.1", "1.1", "11."],
+    'N': ["1..1", "11.1", "1.11", "1..1", "1..1"],
+    'G': [".11", "1..", "1.1", "1.1", ".11"],
+    'E': ["111", "1..", "11.", "1..", "111"],
+    'R': ["11.", "1.1", "11.", "1.1", "1.1"],
+}
+
+
+def text_w(text):
+    return sum(len(GLYPH3[ch][0]) + 1 for ch in text) - 1
+
+
+def stencil(cv, x, y, text, col, shadow=None, rng=None, chip=0.0, col2=None):
+    """Tiny 5px-high lettering; col2 (if given) lights the top row of every glyph."""
+    for ch in text:
+        g = GLYPH3[ch]
+        for j, row in enumerate(g):
+            for i, v in enumerate(row):
+                if v != '1':
+                    continue
+                if rng is not None and rng.random() < chip:
+                    continue
+                if shadow:
+                    cv.px(x + i + 1, y + j + 1, shadow)
+                cv.px(x + i, y + j, col2 if (col2 and j == 0) else col)
+        x += len(g[0]) + 1
+
+
+def wrapd16(v):
+    return (v + 8.0) % 16.0 - 8.0
+
+
+def qpick(ramp, t, x, y):
+    """Like dpick but only dithers near the middle of each band: cleaner, flatter shading."""
+    t = min(max(t, 0.0), 1.0) * (len(ramp) - 1)
+    i = int(t)
+    if i >= len(ramp) - 1:
+        return C(ramp[-1])
+    f = t - i
+    if f < .3:
+        return C(ramp[i])
+    if f > .7:
+        return C(ramp[i + 1])
+    return C(ramp[i + 1]) if (f - .3) / .4 > B4[y % 4, x % 4] else C(ramp[i])
+
+
+# ---------------------------------------------------------------- tiles row 12: trestle deck
+def trestle_deck_tiles():
+    gr = fbm(T, T, 2, 8, np.random.default_rng(1700), 2)      # periodic grain field
+    tiles = []
+    for v in range(4):
+        r = np.random.default_rng(1710 + v)
+        cv = Canvas(T, T)
+        # stringer: a thick creosoted timber, lit from above, grain running along it
+        for y in range(4, T):
+            for x in range(T):
+                if y == 4:
+                    c = 'cre5' if (x * 5 + 3) % 7 == 0 else 'cre4'
+                elif y == 5:
+                    c = 'cre3'
+                elif y == 14:
+                    c = 'cre1'
+                elif y == 15:
+                    c = 'cre0'
+                else:
+                    t = .5 - (y - 6) * .035 + (gr[y, x] - .5) * .3
+                    if (y * 5 + int(gr[y, x] * 7)) % 4 == 0:
+                        t -= .16
+                    c = qpick(CRE, t, x, y)
+                cv.px(x, y, c)
+        # rail head + tie ends along the top 4px (period 8 -> seamless)
+        for x in range(T):
+            m = x % 8
+            cv.px(x, 0, 'steel3' if m in (2, 3) else 'steel2')
+            cv.px(x, 1, 'steel1')
+            if m <= 4:
+                cv.px(x, 2, 'cre5' if m == 0 else ('cre4' if m < 4 else 'cre3'))
+                cv.px(x, 3, 'cre3' if m == 0 else ('cre2' if m < 4 else 'cre1'))
+            else:
+                cv.px(x, 2, 'iron1')
+                cv.px(x, 3, 'cre0')
+        for x in (2, 10):
+            cv.px(x, 2, 'steel1')                                # spike heads on the tie plates
+
+        def plate(x0, y0, w, h, bolts):
+            for y in range(y0, y0 + h):
+                for x in range(x0, x0 + w):
+                    c = 'iron2'
+                    if x == x0 or y == y0:
+                        c = 'iron3'
+                    if x == x0 + w - 1 or y == y0 + h - 1:
+                        c = 'iron1'
+                    cv.px(x, y, c)
+            for (bx, by) in bolts:
+                cv.px(bx, by, 'steel2'); cv.px(bx + 1, by, 'iron0'); cv.px(bx, by + 1, 'iron1')
+            for x in range(x0 + 1, x0 + w + 1):                 # cast shadow on the timber
+                cv.px(x, y0 + h, 'cre0')
+            for y in range(y0 + 1, y0 + h):
+                cv.px(x0 + w, y, 'cre1')
+        if v == 0:
+            plate(9, 7, 4, 5, [(10, 8), (10, 10)])
+            cv.px(4, 9, 'cre1'); cv.px(5, 9, 'cre1'); cv.px(4, 10, 'cre4')   # knot
+        if v == 1:
+            plate(3, 7, 4, 5, [(4, 8), (4, 10)])
+            for x in range(8, 15):                               # long seasoning check
+                cv.px(x, 11 + (x > 11), 'cre0')
+                cv.px(x, 12 + (x > 11), 'cre4' if x % 2 else 'cre3')
+        if v == 2:                                              # splice with a fishplate
+            plate(4, 6, 9, 7, [(5, 7), (5, 10), (10, 7), (10, 10)])
+            for y in range(4, 6):
+                cv.px(8, y, 'cre0')
+            for y in range(13, 15):
+                cv.px(8, y, 'cre0'); cv.px(9, y, 'cre3')
+        if v == 3:
+            plate(9, 7, 4, 5, [(10, 8), (10, 10)])
+            for k, y in enumerate(range(12, 15)):              # rust bleeding from the bolts
+                cv.px(10, y, 'rust1' if k == 0 else 'rust0')
+                if k < 2:
+                    cv.px(11, y + 1, 'rust0')
+            for (x, y) in [(3, 6), (3, 7), (3, 8), (2, 8), (3, 9)]:   # creosote run, wet glint
+                cv.px(x, y, 'cre0' if y > 6 else 'cre1')
+            cv.px(4, 7, 'cre5')
+            kx = 13 + int(r.integers(0, 2))                          # knot
+            cv.px(kx, 10, 'cre1'); cv.px(kx - 1, 10, 'cre1'); cv.px(kx, 11, 'cre4')
+        tiles.append(cv)
+    return tiles
+
+
+# ---------------------------------------------------------------- tiles row 13: living root
+ROOT_STRANDS = [  # (axis, centre, amplitude, phase, radius)  -- period 16 both ways
+    ('h', 4.0, 1.5, 0.0, 1.9),
+    ('h', 11.5, 1.2, 2.6, 1.3),
+    ('v', 3.5, 1.4, 1.0, 1.6),
+    ('v', 11.0, 1.5, 4.0, 1.15),
+]
+
+
+def _strand_d(s, x, y):
+    """Signed perpendicular distance (px) from pixel centre to strand s, and along-axis coord."""
+    ax, c0, A, ph, rad = s
+    if ax == 'h':
+        u, w = x + .5, y + .5
+    else:
+        u, w = y + .5, x + .5
+    ang = 2 * math.pi * u / 16 + ph
+    c = c0 + A * math.sin(ang)
+    slope = A * 2 * math.pi / 16 * math.cos(ang)
+    return wrapd16(w - c) / math.sqrt(1 + slope * slope), u
+
+
+def living_root_tiles():
+    b = rock_base(np.random.default_rng(1720), 6, 5.0)
+    stone, crack = render_chunks(b, b['tone'] * .5, ['cave0', 'cave1', 'cave2', 'cave3'], 'cave0',
+                                 base=0.42, hl=0.34, noise=0.10)
+    D = np.zeros((len(ROOT_STRANDS), T, T))
+    U = np.zeros((len(ROOT_STRANDS), T, T))
+    for k, s in enumerate(ROOT_STRANDS):
+        for y in range(T):
+            for x in range(T):
+                D[k, y, x], U[k, y, x] = _strand_d(s, x, y)
+    R_ = np.array([s[4] for s in ROOT_STRANDS])
+    H_ = [0, 1]
+    V_ = [2, 3]
+
+    def on_top(i, j):          # weave: alternate over/under at each crossing
+        hi, vj = (i, j) if i in H_ else (j, i)
+        h_over = (H_.index(hi) + V_.index(vj)) % 2 == 0
+        return hi if h_over else vj
+    base = Canvas(T, T)
+    base.a[:] = stone
+    owner = -np.ones((T, T), int)
+    for y in range(T):
+        for x in range(T):
+            ins = [k for k in range(len(R_)) if abs(D[k, y, x]) <= R_[k]]
+            if not ins:
+                near = [k for k in range(len(R_)) if abs(D[k, y, x]) <= R_[k] + .9]
+                if near:
+                    base.px(x, y, 'lr0')                     # sinew rim / contact shadow
+                continue
+            top = ins[0]
+            for k in ins[1:]:
+                top = on_top(top, k) if (top in H_) != (k in H_) else top
+            owner[y, x] = top
+            dn = D[top, y, x] / R_[top]
+            t = .6 - .48 * dn
+            if abs(dn) < .7 and ((U[top, y, x] + 2.2 * D[top, y, x]) % 5.0) < .9:   # twisted fibres
+                t -= .16
+            for k in range(len(R_)):                         # shadowed where it dives under
+                if k == top or (top in H_) == (k in H_):
+                    continue
+                if on_top(top, k) == k and abs(D[k, y, x]) <= R_[k] + 1.3:
+                    t -= .32
+            base.px(x, y, qpick(LR, t, x, y))
+    tiles = []
+    for v in range(4):
+        cv = Canvas(T, T)
+        cv.a[:] = base.a
+        # gold veins: interior segments along the centre lines (same in every variant so
+        # edges stay seamless), plus a faint glow bleeding into the nearby stone
+        veins = []
+        for k, segs in ((0, [(2, 6), (10, 13)]), (3, [(5, 9)])):
+            for (a0, a1) in segs:
+                for a in range(a0, a1 + 1):
+                    for w in range(T):
+                        if ROOT_STRANDS[k][0] == 'h':
+                            x, y = a, w
+                        else:
+                            x, y = w, a
+                        if owner[y, x] == k and abs(D[k, y, x]) < .5:
+                            veins.append((x, y))
+        for (x, y) in veins:
+            for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                X, Y = x + dx, y + dy
+                if 0 <= X < T and 0 <= Y < T and owner[Y, X] < 0:
+                    cv.a[Y, X] = mix(tuple(int(c) for c in cv.a[Y, X]), 'gold0', .35)
+        for i, (x, y) in enumerate(veins):
+            cv.px(x, y, 'gold2' if (x * 3 + y * 5 + v) % 5 == 0 else 'gold1')
+
+        def knuckle(x0, y0, rr=1.8):
+            for y in range(int(y0 - rr - 1), int(y0 + rr + 2)):
+                for x in range(int(x0 - rr - 1), int(x0 + rr + 2)):
+                    dx, dy = x + .5 - x0, y + .5 - y0
+                    d = math.hypot(dx, dy)
+                    if d <= rr:
+                        lit = -(dx * .6 + dy * .8) / rr
+                        cv.px(x, y, qpick(['lr1', 'lr3', 'bone_dk', 'bone'], .42 + .55 * lit, x, y))
+                    elif d <= rr + .9 and 0 <= x < T and 0 <= y < T and owner[y, x] < 0:
+                        cv.px(x, y, 'lr0')
+
+        def fangs(x0, y0, n):
+            """A slit of gum in the stone with thin fangs standing out of it."""
+            for i in range(2 * n + 1):
+                cv.px(x0 - 1 + i, y0 + 1, 'lr0')
+                cv.px(x0 - 1 + i, y0 + 2, 'flesh1' if 0 < i < 2 * n else 'lr1')
+            for i in range(n):
+                x = x0 + 2 * i
+                cv.px(x, y0, 'bone')
+                cv.px(x, y0 + 1, 'bone_dk')
+                if i % 2 == 0:
+                    cv.px(x, y0 - 1, 'bone')
+
+        def pore(x0, y0):
+            for (dx, dy) in N4:
+                cv.px(x0 + dx, y0 + dy, 'gold1')
+            cv.px(x0, y0, 'gold2')
+            for (dx, dy) in [(-1, -1), (1, 1), (1, -1), (-1, 1)]:
+                cv.px(x0 + dx, y0 + dy, 'lr1')
+        if v == 0:
+            knuckle(8.0, 4.0 + 1.5 * math.sin(2 * math.pi * 8.0 / 16) - .3)
+            fangs(6, 8, 3)
+        if v == 1:
+            pore(7, 8)
+            knuckle(11.2, 12.4, 1.4)
+        if v == 2:
+            knuckle(7.0, 3.6, 1.6)
+            knuckle(10.4, 9.0, 1.5)
+            for (x, y, c) in [(6, 13, 'flesh2'), (6, 14, 'flesh3'), (6, 15, 'flesh1')]:   # weeping drip
+                cv.px(x, y, c)
+        if v == 3:
+            fangs(6, 8, 2)
+            pore(12, 14)
+        tiles.append(cv)
+    return tiles
+
+
+# ---------------------------------------------------------------- people row 8: hard-hat diver
+def dv_leg(cv, hip, knee, ankle, back):
+    c = ('cnv0', 'cnv0') if back else ('cnv2', 'cnv1')
+    for a, b in ((hip, knee), (knee, ankle)):
+        for (x, y) in bres(*a, *b):
+            cv.px(x, y, c[0]); cv.px(x + 1, y, c[1])
+    ax, ay = ankle
+    # lead-soled boots with brass toe caps (one size bigger than a work boot)
+    lo = ('iron1', 'iron0', 'iron1', 'brass1') if back else ('iron3', 'iron2', 'iron1', 'brass2')
+    cv.px(ax - 1, ay, lo[1]); cv.px(ax, ay, lo[0]); cv.px(ax + 1, ay, lo[1])
+    cv.px(ax - 1, ay + 1, lo[1]); cv.px(ax, ay + 1, lo[0]); cv.px(ax + 1, ay + 1, lo[1]); cv.px(ax + 2, ay + 1, lo[3])
+    cv.px(ax - 1, ay + 2, lo[2]); cv.px(ax, ay + 2, lo[2]); cv.px(ax + 1, ay + 2, lo[2]); cv.px(ax + 2, ay + 2, lo[3])
+
+
+def dv_torso(cv, x0, y0):
+    for yr in range(7):
+        for xr in range(6):
+            c = 'cnv1'
+            if xr == 0:
+                c = 'cnv0'
+            elif xr in (1, 2) and yr in (2, 3):
+                c = 'cnv2'
+            cv.px(x0 + xr, y0 + yr, c)
+    # corselet (copper breastplate) over the shoulders, studded with brass wing nuts
+    for xr in range(-1, 7):
+        cv.px(x0 + xr, y0, 'cop2' if 0 < xr < 4 else 'cop1')
+        cv.px(x0 + xr, y0 + 1, 'cop0' if xr in (-1, 6) else 'cop1')
+    for xr in (0, 2, 4):
+        cv.px(x0 + xr, y0 + 1, 'brass2')
+    # lead chest weight + weight belt
+    for yr in range(2, 5):
+        cv.px(x0 + 4, y0 + yr, 'iron3' if yr == 2 else 'iron2')
+        cv.px(x0 + 5, y0 + yr, 'iron2' if yr == 2 else 'iron1')
+    for xr in range(-1, 7):
+        cv.px(x0 + xr, y0 + 6, 'lea1' if xr % 3 else 'iron2')
+    cv.px(x0 + 4, y0 + 6, 'brass2')
+
+
+def dv_helmet(cv, cx, cy):
+    """Round Mark V-style helmet; faceplate on the right (facing right)."""
+    for y in range(int(cy - 5), int(cy + 5)):
+        for x in range(int(cx - 5), int(cx + 6)):
+            dx, dy = x + .5 - cx, (y + .5 - cy) * 1.05
+            d = math.hypot(dx, dy)
+            if d <= 4.6:
+                lit = -(dx * .6 + dy * .8) / 4.6
+                cv.px(x, y, qpick(COP, .5 + .55 * lit, x, y))
+    # neck ring: dark gasket with bolt heads
+    for x in range(int(cx - 4), int(cx + 4)):
+        cv.px(x, cy + 4, 'brass2' if x % 2 else 'iron1')
+    # front faceplate: brass ring round a faintly glowing pane
+    fx, fy = int(cx + 2), int(cy)
+    for (dx, dy, c) in [(0, -1, 'brass2'), (1, -1, 'brass3'), (2, 0, 'brass1'), (2, 1, 'brass1'),
+                        (-1, 0, 'brass2'), (-1, 1, 'brass1'), (0, 2, 'brass0'), (1, 2, 'brass0'),
+                        (0, 0, 'glow2'), (1, 0, 'glow1'), (0, 1, 'glow1'), (1, 1, 'glow0')]:
+        cv.px(fx + dx, fy + dy, c)
+    cv.px(int(cx - 1), int(cy - 4), 'cop4')                    # top glint
+    cv.px(int(cx - 3), int(cy + 1), 'brass2')                  # side port rim
+    cv.px(int(cx - 3), int(cy + 2), 'glass1')
+
+
+def dv_gun(cv, a, b, fired=False):
+    """Harpoon gun from stock a to muzzle b (roughly horizontal)."""
+    pts = bres(*a, *b)
+    for i, (x, y) in enumerate(pts):
+        if i < 3:
+            cv.px(x, y, 'wood3'); cv.px(x, y + 1, 'wood2' if i else 'wood1')
+        else:
+            cv.px(x, y, 'steel1' if i % 2 else 'steel2')
+            cv.px(x, y + 1, 'steel0')
+    gx, gy = pts[2]
+    cv.px(gx, gy + 2, 'wood1')                                 # pistol grip
+    bx, by = b
+    if not fired:                                              # spear head + barb
+        cv.px(bx + 1, by, 'steel3'); cv.px(bx, by - 1, 'steel2'); cv.px(bx - 1, by - 1, 'steel1')
+
+
+def draw_diver(ci):
+    P = WALK[ci] if ci < 4 else [IDLE, STARTLED, GRABBED, None][ci - 4]
+    attack = ci == 7
+    if attack:
+        P = dict(bob=0, legs=WIDE, arms=[((6, 11), (8, 11)), ((9, 11), (10, 11))])
+    hold = ci not in (5, 6)
+    cv = Canvas(16, 24)
+    b = P.get('bob', 0)
+    top, hipy = 10 + b, 16 + b
+    (bk, ba), (fk, fa) = P['legs']
+    (be, bh), (fe, fh) = P['arms']
+
+    def up(p):
+        return (p[0], p[1] + b)
+    hdx, hdy = P.get('hdx', 0), P.get('hdy', 0)
+    hcx, hcy = 8.0 + hdx, 5.0 + b + hdy
+    # air hose stub leaving the back of the helmet (the game draws the long hose from its end)
+    hx0, hy0 = int(hcx - 4), int(hcy + 1)
+    for (dx, dy, c) in [(0, 0, 'brass2'), (-1, 0, 'brass1'), (-2, 1, 'char2'), (-2, 2, 'char1'), (-3, 2, 'char2'),
+                        (-3, 3, 'char1'), (-3, 4, 'char2'), (-2, 3, 'char0')]:
+        cv.px(hx0 + dx, hy0 + dy, c)
+    bn_arm(cv, up((7, 11)), up(be), up(bh), CNV, back=True)
+    dv_leg(cv, (6, hipy), bk, ba, back=True)
+    dv_torso(cv, 5, top)
+    dv_leg(cv, (8, hipy), fk, fa, back=False)
+    dv_helmet(cv, hcx, hcy)
+    if hold:
+        if attack:
+            a, m = (4, 10), (13, 10)
+            fe2, fh2 = (9, 12), (10, 11)
+        else:
+            a, m = up((4, 15)), up((13, 14))
+            fe2, fh2 = up((9, 13)), up((10, 15))
+        dv_gun(cv, a, m, fired=attack)
+        bn_arm(cv, up((9, 11)) if not attack else (9, 11), fe2, fh2, CNV, back=False)
+    else:
+        bn_arm(cv, up((9, 11)), up(fe), up(fh), CNV, back=False)
+    if P.get('rot'):
+        im = cv.image().rotate(P['rot'], resample=Image.NEAREST, center=(8, 14))
+        cv.a[:] = np.array(im)
+    outline(cv, 'ink')
+    if not P.get('rot'):                                       # faint faceplate glow
+        fx, fy = int(hcx + 2), int(hcy)
+        for (x, y) in [(fx + 3, fy), (fx + 3, fy + 1)]:
+            if cv.get(x, y)[3] == 0:
+                cv.px(x, y, C('glow1', 80))
+    if attack:                                                 # muzzle puff (bubbles + powder smoke)
+        for (x, y, c) in [(14, 10, 'foam'), (15, 10, C('smk3', 220)), (14, 9, C('smk2', 200)),
+                          (15, 9, C('foam', 170)), (15, 11, C('smk2', 180)), (14, 11, C('smk3', 140)),
+                          (15, 8, C('water_hi', 150)), (13, 8, C('foam', 120))]:
+            cv.px(x, y, c)
+    return cv
+
+
+# ---------------------------------------------------------------- people row 9: houndmaster
+HM = dict(hair='hair1', hat='flat', hatc=('fed0', 'fed1', 'fed2'))
+
+
+def hm_leg(cv, hip, knee, ankle, back):
+    th = ('fed0', 'fed0') if back else ('fed2', 'fed1')
+    bt = ('lea0', 'lea0') if back else ('lea2', 'lea1')
+    for (x, y) in bres(*hip, *knee):
+        cv.px(x, y, th[0]); cv.px(x + 1, y, th[1])
+    for i, (x, y) in enumerate(bres(*knee, *ankle)):       # tall laced field boots
+        cv.px(x, y, bt[0]); cv.px(x + 1, y, bt[1])
+        if i == 0 and not back:
+            cv.px(x, y, 'lea3')
+    ax, ay = ankle
+    bc = ('boot0', 'boot0', 'boot1') if back else ('boot1', 'boot2', 'boot1')
+    cv.px(ax, ay + 1, bc[1]); cv.px(ax + 1, ay + 1, bc[0])
+    cv.px(ax, ay + 2, bc[2]); cv.px(ax + 1, ay + 2, bc[0]); cv.px(ax + 2, ay + 2, bc[2])
+
+
+def hm_torso(cv, x0, y0, whistle=True):
+    for yr in range(7):
+        for xr in range(4):
+            c = 'wax1'
+            if xr == 0:
+                c = 'wax0'
+            elif xr == 1 and yr in (1, 2, 3):
+                c = 'wax2'
+            elif yr == 0 and xr >= 2:
+                c = 'wax3'
+            if xr == 3 and 1 <= yr <= 5:
+                c = 'wax0' if yr % 2 else 'wax1'                 # coat front / buttons
+            cv.px(x0 + xr, y0 + yr, c)
+    cv.px(x0 + 2, y0, 'fed2'); cv.px(x0 + 3, y0, 'fed1')          # corduroy collar
+    for xr in range(4):
+        cv.px(x0 + xr, y0 + 6, 'lea0' if xr != 2 else 'brass2')   # belt
+    if whistle:                                                   # whistle on a lanyard
+        cv.px(x0 + 3, y0 + 1, 'bonnet1'); cv.px(x0 + 3, y0 + 2, 'bonnet1')
+        cv.px(x0 + 4, y0 + 3, 'brass3'); cv.px(x0 + 3, y0 + 3, 'brass1')
+
+
+def hm_coat(cv, x0, hipy, sway):
+    for k in range(4):
+        s = sway if k >= 2 else 0
+        for xr in range(-1 + s, 5 + s):
+            c = 'wax1'
+            if xr <= s:
+                c = 'wax0'
+            if k == 0 and xr == 1:
+                c = 'wax2'
+            if k == 3:
+                c = 'wax0' if xr % 2 else 'wax1'
+            if xr == 3 + s and k >= 1:
+                c = 'wax0'                                         # front vent
+            cv.px(x0 + xr, hipy + k, c)
+
+
+def hm_whip_coil(cv, x, y):
+    for (dx, dy, c) in [(0, 0, 'lea2'), (1, 0, 'lea1'), (-1, 1, 'lea2'), (2, 1, 'lea0'), (-1, 2, 'lea1'),
+                        (2, 2, 'lea0'), (0, 3, 'lea1'), (1, 3, 'lea0'), (0, 1, 'lea3')]:
+        cv.px(x + dx, y + dy, c)
+
+
+def draw_houndmaster(ci):
+    P = WALK[ci] if ci < 4 else [IDLE, STARTLED, GRABBED, None][ci - 4]
+    attack = ci == 7
+    whistle_up = ci == 5
+    if attack:
+        P = dict(bob=0, legs=WIDE, arms=[((6, 12), (4, 13)), ((10, 10), (11, 10))], mouth='open')
+    if whistle_up:
+        P = dict(bob=-1, legs=[((6, 18), (5, 21)), ((9, 18), (10, 21))], arms=[((5, 8), (4, 5)), ((11, 12), (10, 9))],
+                 eyes='wide')
+    cv = Canvas(16, 24)
+    b = P.get('bob', 0)
+    top, hipy = 9 + b, 16 + b
+    (bk, ba), (fk, fa) = P['legs']
+    (be, bh), (fe, fh) = P['arms']
+
+    def up(p):
+        return (p[0], p[1] + b)
+    hm_whip_coil(cv, 5, hipy - 1)
+    bn_arm(cv, up((7, 10)), up(be), up(bh), WAX, back=True)
+    hm_leg(cv, (6, hipy), bk, ba, back=True)
+    hm_torso(cv, 6, top, whistle=not whistle_up)
+    hm_leg(cv, (8, hipy), fk, fa, back=False)
+    sway = 1 if fa[0] > 9 else (-1 if fa[0] < 7 else 0)
+    hm_coat(cv, 6, hipy, sway)
+    hdx, hdy = P.get('hdx', 0), P.get('hdy', 0)
+    x0, y0 = 6 + hdx, 4 + b + hdy
+    p_head(cv, x0, y0, HM, P)
+    cv.px(x0 + 4, y0 + 3, 'hair0'); cv.px(x0 + 3, y0 + 3, 'hair1')   # moustache
+    cv.px(x0 + 1, y0 + 3, 'hair1')                                   # sideburn
+    bn_arm(cv, up((8, 10)), up(fe), up(fh), WAX, back=False)
+    if whistle_up:                                                   # whistle to mouth
+        cv.px(x0 + 5, y0 + 3, 'brass3'); cv.px(x0 + 6, y0 + 3, 'brass1')
+        cv.px(x0 + 4, y0 + 3, 'brass2')
+        cv.px(x0 + 4, y0 + 4, 'bonnet1')
+    if attack:                                                       # whip stock in the fist
+        hx, hy = up(fh)
+        cv.px(hx + 2, hy - 1, 'lea3'); cv.px(hx + 3, hy - 1, 'lea2')
+    if P.get('rot'):
+        im = cv.image().rotate(P['rot'], resample=Image.NEAREST, center=(8, 14))
+        cv.a[:] = np.array(im)
+    outline(cv, 'ink')
+    if attack:                                                       # lash snapping out ahead, crack at the tip
+        hx, hy = up(fh)
+        for (x, y, c) in [(14, hy - 2, 'lea1'), (15, hy - 2, 'lea0'), (15, hy - 3, C('spark1', 230)),
+                          (14, hy - 4, C('foam', 170)), (15, hy - 1, C('spark0', 170)), (13, hy - 4, C('foam', 90))]:
+            cv.px(x, y, c)
+    if whistle_up:                                                   # shrill notes
+        for (x, y, a) in [(14, y0 + 1, 200), (15, y0, 160), (14, y0 + 5, 160), (15, y0 + 6, 120)]:
+            cv.px(x, y, C('wht5', a))
+    return cv
+
+
+# ---------------------------------------------------------------- props row 3
+def p_water_tower():
+    cv = prop_cell()
+    # legs (back pair darker), sway rods
+    for (a, bb, back) in [((12, 17), (11, 29), True), ((19, 17), (20, 29), True),
+                          ((9, 17), (6, 29), False), ((22, 17), (25, 29), False)]:
+        for (x, y) in bres(*a, *bb):
+            if back:
+                cv.px(x, y, 'cre1'); cv.px(x + 1, y, 'cre0')
+            else:
+                cv.px(x, y, 'cre4'); cv.px(x + 1, y, 'cre2')
+    for (p0, p1) in [((8, 19), (23, 28)), ((23, 19), (8, 28))]:
+        for (x, y) in bres(*p0, *p1):
+            cv.px(x, y, 'steel0')
+    for x in range(8, 24):
+        cv.px(x, 23, 'cre3' if x % 3 else 'cre2'); cv.px(x, 24, 'cre1')
+    for (x0, x1) in [(5, 9), (23, 27)]:                                 # stone footings
+        for x in range(x0, x1):
+            cv.px(x, 30, 'fstone3' if x == x0 else 'fstone2'); cv.px(x, 31, 'fstone1')
+    # tank: vertical staves on a barrel, iron hoops
+    for y in range(7, 18):
+        for x in range(6, 26):
+            u = (x - 6 + .5) / 20
+            t = .78 - abs(u - .3) * 1.4
+            if (x - 6) % 3 == 2:
+                t -= .18
+            ramp = ['wood1', 'wood2', 'wood3', 'wood4', 'wood5']
+            if y in (9, 13, 16):
+                ramp = ['iron1', 'iron2', 'iron3', 'iron4']
+            cv.px(x, y, dpick(ramp, t, x, y))
+    for x in range(6, 26):
+        cv.px(x, 17, 'wood1')
+    # conical roof with a finial
+    m = cv.poly([(15.5, 1.5), (16.5, 1.5), (27, 7.5), (5, 7.5)], 'roof2')
+    ys, xs = np.nonzero(m)
+    for y, x in zip(ys, xs):
+        t = .75 - (x - 5) / 22 * .7 + (.1 if (x + y) % 3 == 0 else 0)
+        cv.a[y, x] = C(dpick(ROOF, t, x, y))
+    for x in range(5, 27):
+        cv.px(x, 7, 'roof0' if x % 2 else 'roof1')
+    cv.px(15, 0, 'iron3'); cv.px(16, 0, 'iron2'); cv.px(15, 1, 'iron3')
+    # spout: hinged canvas pipe with a counterweight chain
+    for i, (x, y) in enumerate(bres(25, 13, 30, 18)):
+        cv.px(x, y, 'iron3'); cv.px(x, y + 1, 'iron1')
+    cv.px(30, 20, 'iron2'); cv.px(31, 20, 'iron1')
+    for y in range(8, 13):
+        cv.px(28, y, 'steel1' if y % 2 else 'steel0')
+    # ladder on the right leg
+    for y in range(18, 29, 2):
+        cv.px(23 + (y - 17) * 3 // 12 - 1, y, 'cre4')
+    outline(cv, None)
+    for (x, y, a) in [(30, 22, 200), (30, 25, 150), (30, 28, 110)]:      # drip
+        cv.px(x, y, C('water_hi', a))
+    return cv
+
+
+def p_signal():
+    cv = prop_cell()
+    for x in range(11, 21):                                             # concrete base
+        cv.px(x, 29, 'conc3' if x < 14 else 'conc2'); cv.px(x, 30, 'conc2' if x < 18 else 'conc1')
+        cv.px(x, 31, 'conc1')
+    for y in range(4, 29):                                              # mast
+        cv.px(15, y, 'iron3'); cv.px(16, y, 'iron2'); cv.px(17, y, 'iron1')
+    for y in range(9, 28, 3):                                           # ladder
+        cv.px(19, y, 'iron2'); cv.px(18, y, 'iron2')
+    for y in range(9, 29):
+        cv.px(20, y, 'iron1')
+    cv.px(15, 2, 'iron3'); cv.px(16, 2, 'iron2'); cv.px(15, 3, 'iron4'); cv.px(16, 3, 'iron3')   # finial
+    cv.px(16, 1, 'iron3')
+    # spectacle casting with red + green lenses, left of the mast
+    for y in range(6, 15):
+        for x in range(9, 15):
+            cv.px(x, y, 'iron2' if (x == 9 or y in (6, 14)) else 'iron1')
+    for (cx, cy, c0, c1, c2) in [(11.5, 8.5, 'red1', 'red3', 'flesh3'), (11.5, 12, 'sig_g0', 'sig_g1', 'sig_g2')]:
+        for y in range(int(cy - 2), int(cy + 2)):
+            for x in range(int(cx - 2), int(cx + 2)):
+                d = math.hypot(x + .5 - cx, y + .5 - cy)
+                if d <= 1.6:
+                    cv.px(x, y, c2 if d < .8 else c1)
+                elif d <= 2.2:
+                    cv.px(x, y, c0)
+    # semaphore arm (horizontal: STOP), square end with a white band
+    for x in range(18, 30):
+        for y in range(7, 10):
+            c = 'red3' if y == 7 else ('red2' if y == 8 else 'red1')
+            if 24 <= x <= 25:
+                c = 'wht5' if y == 7 else ('wht3' if y == 8 else 'wht2')
+            cv.px(x, y, c)
+    for x in range(14, 18):
+        cv.px(x, 8, 'iron3' if x < 16 else 'iron2')
+    cv.px(16, 7, 'brass2'); cv.px(16, 8, 'brass3'); cv.px(17, 8, 'brass1'); cv.px(16, 9, 'brass1')   # pivot
+    # lamp box behind the spectacle
+    for y in range(9, 13):
+        for x in range(4, 9):
+            cv.px(x, y, 'iron2' if x == 4 else 'iron1')
+    cv.px(5, 8, 'iron2'); cv.px(6, 8, 'iron3'); cv.px(6, 7, 'iron2')
+    cv.px(8, 10, 'lit_win'); cv.px(8, 11, 'amber1')
+    outline(cv, None)
+    for (x, y, a) in [(10, 5, 80), (13, 5, 80), (8, 8, 90), (12, 5, 60)]:
+        if cv.get(x, y)[3] == 0:
+            cv.px(x, y, C('flesh3', a))
+    return cv
+
+
+def p_kennel_pen():
+    cv = prop_cell()
+    for x in range(2, 30):                                              # rails
+        cv.px(x, 10, 'board4' if x % 4 else 'board3'); cv.px(x, 11, 'board2'); cv.px(x, 12, 'board1')
+        cv.px(x, 25, 'board3'); cv.px(x, 26, 'board2'); cv.px(x, 27, 'board1')
+    for x0 in (2, 27):                                                  # posts
+        for y in range(8, 32):
+            cv.px(x0, y, 'board3' if y > 8 else 'board4'); cv.px(x0 + 1, y, 'board2'); cv.px(x0 + 2, y, 'board1')
+        cv.px(x0 + 1, 7, 'board3')
+        cv.px(x0 + 1, 11, 'nail'); cv.px(x0 + 1, 26, 'nail')
+    # tin bowl with water, and a gnawed bone, in front of the pen
+    for (x, y, c) in [(9, 28, 'steel2'), (10, 28, 'steel3'), (11, 28, 'water_hi'), (12, 28, 'water1'),
+                      (13, 28, 'water1'), (14, 28, 'water_hi'), (15, 28, 'steel2'), (16, 28, 'steel1'),
+                      (9, 29, 'steel1'), (10, 29, 'steel2'), (11, 29, 'steel2'), (12, 29, 'steel1'),
+                      (13, 29, 'steel1'), (14, 29, 'steel1'), (15, 29, 'steel0'), (16, 29, 'steel0'),
+                      (10, 30, 'steel1'), (11, 30, 'steel1'), (12, 30, 'steel0'), (13, 30, 'steel0'),
+                      (14, 30, 'steel0'), (15, 30, 'steel0'), (11, 31, 'steel0'), (14, 31, 'steel0')]:
+        cv.px(x, y, c)
+    for (x, y, c) in [(19, 30, 'bone'), (20, 31, 'bone_dk'), (20, 30, 'bone'), (21, 30, 'bone'), (22, 30, 'bone'),
+                      (23, 30, 'bone'), (24, 29, 'bone'), (24, 31, 'bone_dk'), (19, 29, 'bone'), (21, 31, 'bone_dk'),
+                      (22, 31, 'bone_dk')]:
+        cv.px(x, y, c)
+    ground_tuft(cv, 4, 31); ground_tuft(cv, 25, 31, 2)
+    outline(cv, None)
+    # chain-link mesh stretched between the rails (drawn after outlining so it stays see-through)
+    for y in range(13, 25):
+        for x in range(5, 27):
+            if (x + y) % 4 == 0 or (x - y) % 4 == 0:
+                if (9 <= x <= 12 and 17 <= y <= 21) and (x + y) % 3:      # a torn, curled-back hole
+                    continue
+                hi = (x + y) % 4 == 0 and (x - y) % 4 == 0
+                cv.px(x, y, 'steel2' if hi and y < 19 else ('steel1' if hi else C('steel1', 200)))
+    for (x, y) in [(9, 17), (8, 18), (12, 21), (13, 22)]:
+        cv.px(x, y, 'steel3')
+    return cv
+
+
+def p_root_cluster():
+    cv = prop_cell()
+    rng = np.random.default_rng(1800)
+    for y in range(26, 32):                                             # heaved earth
+        for x in range(3, 30):
+            if y - 26 >= abs(x - 16) * .32 - 1.2 + rng.uniform(-.6, .6):
+                t = .3 + (31 - y) * .1 - (x - 16) * .015 + rng.uniform(-.1, .1)
+                cv.px(x, y, dpick(['dirt0', 'dirt1', 'dirt2', 'dirt3'], t, x, y))
+    curves = [((9, 31), (5, 21), (11, 12), 2.4, .8), ((16, 31), (14, 17), (19, 4), 3.0, 1.0),
+              ((23, 31), (28, 22), (24, 12), 2.3, .7), ((13, 30), (19, 26), (27, 25), 1.6, .6),
+              ((20, 30), (12, 28), (4, 23), 1.5, .5)]
+    for (p0, pc, p1, r0, r1) in curves:
+        tube(cv, p0, pc, p1, r0, r1, LR, light=(.6, .8), base=.45, k=.5)
+    for (p0, pc, p1, r0, r1) in curves[:3]:                            # gold veins up the stems
+        for s in range(4, 22, 2):
+            t = s / 24
+            x = (1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * pc[0] + t * t * p1[0]
+            y = (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * pc[1] + t * t * p1[1]
+            cv.px(x, y, 'gold2' if s % 6 == 0 else 'gold1')
+    for (x, y) in [(11, 12), (19, 4), (24, 12)]:                       # knuckled tips
+        cv.px(x, y, 'bone'); cv.px(x, y + 1, 'bone_dk')
+    for (x, y) in [(6, 29), (25, 28), (10, 27), (21, 27)]:             # clods
+        cv.px(x, y, 'dirt4'); cv.px(x + 1, y, 'dirt3')
+    outline(cv, None)
+    for (x, y) in [(5, 9), (26, 6), (29, 17), (13, 3), (2, 19), (22, 1)]:
+        cv.px(x, y, 'gold2')
+        for (dx, dy) in N4:
+            if not cv.solid(x + dx, y + dy):
+                cv.px(x + dx, y + dy, C('gold1', 110))
+    return cv
+
+
+def p_egg_sac():
+    cv = prop_cell()
+    rng = np.random.default_rng(1810)
+    for (p0, pc, p1, r0, r1) in [((9, 31), (8, 27), (11, 24), 1.4, .7), ((24, 31), (25, 27), (21, 24), 1.4, .7),
+                                 ((16, 31), (16, 30), (16, 27), 1.8, 1.2)]:
+        tube(cv, p0, pc, p1, r0, r1, LR, light=(.6, .8), base=.4)
+    cx, cy, rx, ry = 16, 17.5, 7.6, 10.5
+    for y in range(6, 30):
+        for x in range(7, 26):
+            nx, ny = (x + .5 - cx) / rx, (y + .5 - cy) / ry
+            d = math.hypot(nx, ny * (1 + .08 * ny))
+            if d > 1:
+                continue
+            lit = -(nx * .6 + ny * .8)
+            t = .36 + .26 * lit * d + .5 * (1 - d) ** 1.5 + rng.uniform(-.04, .04)
+            c = qpick(['flesh0', 'flesh1', 'flesh2', 'flesh3'], t, x, y)
+            if d > .86 and lit < -.25:
+                c = C('flesh2')                                         # back-lit translucent rim
+            # the curled thing inside, a shadow through the membrane
+            ex, ey = (x + .5 - 16.5) / 4.0, (y + .5 - 19.0) / 5.0
+            ed = math.hypot(ex, ey)
+            if .42 < ed < 1.0 and not (ex > .15 and ey < -.25):
+                c = C('lr1') if ed > .82 or ed < .55 else C('flesh0')
+            if math.hypot(x + .5 - 18.6, y + .5 - 15.6) < 1.2:          # its head
+                c = C('flesh0')
+            cv.px(x, y, c)
+    for (p0, p1) in [((14, 7), (12, 12)), ((12, 12), (10, 15)), ((12, 12), (13, 17)), ((20, 9), (22, 15)),
+                     ((22, 15), (21, 21)), ((22, 15), (24, 18)), ((11, 22), (14, 27))]:
+        for i, (x, y) in enumerate(bres(*p0, *p1)):
+            if cv.solid(x, y):
+                cv.px(x, y, 'flesh0' if i % 3 else 'lr1')
+    for (x, y, c) in [(11, 10, 'eye_w'), (12, 9, 'worm_hl'), (11, 11, 'worm_hl'), (13, 8, 'flesh3'),
+                      (10, 13, 'worm_hl'), (21, 25, 'flesh3'), (18, 19, 'gold2'), (17, 19, 'gold1')]:
+        cv.px(x, y, c)
+    outline(cv, None)
+    for x in range(5, 28):                                             # glistening slime pool
+        if abs(x - 16) < 11:
+            cv.px(x, 31, C('flesh1', 150 if abs(x - 16) < 8 else 90))
+    for (x, y, a) in [(6, 14, 70), (26, 12, 70), (5, 20, 50), (27, 21, 50)]:
+        cv.px(x, y, C('flesh3', a))
+    return cv
+
+
+def p_bumper():
+    cv = prop_cell()
+    for x in range(0, 32):                                              # ties + rail
+        if x % 6 < 4:
+            cv.px(x, 30, 'cre3' if x % 6 == 0 else 'cre2'); cv.px(x, 31, 'cre1')
+        else:
+            cv.px(x, 31, 'cre0')
+    for x in range(0, 27):
+        cv.px(x, 28, 'steel2' if x % 5 else 'steel3'); cv.px(x, 29, 'steel0')
+    # rails bent up into a braced triangle
+    for (p0, p1) in [((26, 29), (24, 13)), ((12, 29), (22, 14))]:
+        for (x, y) in bres(*p0, *p1):
+            cv.px(x, y, 'steel1'); cv.px(x + 1, y, 'steel0')
+    for (x, y) in bres(17, 21, 25, 21):
+        cv.px(x, y, 'steel1')
+    # heavy timber header painted with warning stripes
+    for y in range(12, 18):
+        for x in range(14, 30):
+            stripe = ((x - y) // 3) % 2 == 0
+            c = ('red3' if y == 12 else 'red2') if stripe else ('wht5' if y == 12 else 'wht3')
+            if y == 17:
+                c = 'red0' if stripe else 'wht1'
+            cv.px(x, y, c)
+    # buffer head facing the oncoming train (left)
+    for y in range(12, 18):
+        cv.px(13, y, 'iron2')
+    for (x, y, c) in [(10, 13, 'iron3'), (11, 13, 'iron3'), (12, 13, 'iron2'), (10, 14, 'iron4'), (11, 14, 'iron3'),
+                      (12, 14, 'iron2'), (10, 15, 'iron3'), (11, 15, 'iron2'), (12, 15, 'iron1'), (10, 16, 'iron2'),
+                      (11, 16, 'iron1'), (12, 16, 'iron1'), (9, 14, 'iron2'), (9, 15, 'iron1')]:
+        cv.px(x, y, c)
+    for (x, y) in [(15, 14), (28, 14), (15, 16), (28, 16)]:
+        cv.px(x, y, 'nail')
+    for x in range(20, 31):                                             # gravel
+        if (x * 7) % 3:
+            cv.px(x, 29, 'peb1' if x % 2 else 'peb0')
+    outline(cv, None)
+    return cv
+
+
+def p_diving_helmet():
+    cv = prop_cell()
+    rng = np.random.default_rng(1820)
+    rust = fbm(32, 32, 4, 4, rng, 3)
+    # corselet lying flat beneath
+    for y in range(26, 31):
+        for x in range(4, 28):
+            if abs(x - 16) <= 12 - (30 - y) * .6:
+                t = .62 - (x - 4) / 24 * .4 + (.15 if y == 26 else 0)
+                c = dpick(COP, t, x, y)
+                if rust[y, x] > .72:
+                    c = qpick(['verd0', 'verd1', 'verd2'], (rust[y, x] - .72) * 3, x, y)
+                cv.px(x, y, c)
+    for x in range(6, 27, 3):
+        cv.px(x, 28, 'brass3' if x < 16 else 'brass1')
+    # the dome, tipped over onto its side
+    cx, cy, rr = 16.5, 18.5, 8.3
+    for y in range(9, 29):
+        for x in range(7, 27):
+            dx, dy = x + .5 - cx, y + .5 - cy
+            d = math.hypot(dx, dy)
+            if d > rr:
+                continue
+            lit = -(dx * .6 + dy * .8) / rr
+            c = qpick(COP, .48 + .55 * lit, x, y)
+            if rust[y, x] > .7:
+                c = qpick(['verd0', 'verd1', 'verd2'], (rust[y, x] - .7) * 3 + .3 * lit + .3, x, y)
+            elif rust[y, x] < .22:
+                c = 'rust1' if lit > 0 else 'rust0'
+            cv.px(x, y, c)
+    # front faceplate (now facing up-right), glass cracked and dark
+    fx, fy = 20.5, 15.5
+    for y in range(11, 21):
+        for x in range(16, 26):
+            d = math.hypot(x + .5 - fx, y + .5 - fy)
+            if d <= 3.2:
+                cv.px(x, y, 'glass0' if d < 2.2 else ('brass2' if (x + .5 - fx) + (y + .5 - fy) < 0 else 'brass0'))
+    for (x, y) in [(19, 14), (20, 15), (21, 15), (21, 16), (22, 17)]:
+        cv.px(x, y, 'glass2')
+    cv.px(19, 13, 'glass1')
+    for (x, y) in [(10, 17), (11, 16), (10, 18)]:                     # side port
+        cv.px(x, y, 'brass1')
+    cv.px(11, 17, 'glass0')
+    for (x, y, c) in [(8, 25, 'char2'), (7, 26, 'char1'), (6, 27, 'char2'), (5, 28, 'char1'), (5, 29, 'char2'),
+                      (9, 24, 'brass2')]:
+        cv.px(x, y, c)                                                # torn hose stub
+    cv.px(13, 12, 'cop4'); cv.px(14, 11, 'cop3')
+    for (x, y) in [(3, 31), (4, 30), (26, 31), (27, 30), (28, 31), (12, 31)]:
+        cv.px(x, y, 'algae2' if (x + y) % 2 else 'algae3')
+    for x in range(3, 30):                                             # silt line
+        if not cv.solid(x, 31):
+            cv.px(x, 31, 'dirt1')
+    outline(cv, None)
+    return cv
+
+
+def p_dynamite_crate():
+    cv = prop_cell()
+    rng = np.random.default_rng(1830)
+    # sticks poking out of the pried-open lid
+    for (x0, h) in [(9, 6), (12, 8), (15, 5), (19, 7)]:
+        for y in range(15 - h, 15):
+            cv.px(x0, y, 'dyn' if y > 15 - h else 'flesh3'); cv.px(x0 + 1, y, 'dyn_dk')
+        cv.px(x0, 14 - h, 'ink2'); cv.px(x0 + 1, 13 - h, 'ink2')        # fuse
+    for x in range(4, 27):                                              # lid, propped askew
+        y = 13 - (x - 4) * 4 // 22
+        cv.px(x, y, 'wood4' if x % 5 else 'wood3'); cv.px(x, y + 1, 'wood2')
+    for y in range(15, 32):
+        for x in range(2, 30):
+            k = (y - 15) % 6
+            t = [.82, .62, .55, .5, .42, .1][k] + (rng.random() - .5) * .12
+            c = dpick(['wood1', 'wood2', 'wood3', 'wood4'], t, x, y)
+            if x in (2, 3, 28, 29):
+                c = 'wood3' if x in (2, 28) else 'wood1'
+            cv.px(x, y, c)
+    for (x, y) in [(2, 16), (28, 16), (2, 30), (28, 30), (2, 22), (28, 22)]:
+        cv.px(x, y, 'nail')
+    tw = text_w('DANGER')
+    for x in range(4, 28):                                              # pale label band
+        for y in range(21, 28):
+            if y in (21, 27):
+                cv.px(x, y, 'wood2')
+            else:
+                cv.px(x, y, 'camp2' if (x + y) % 5 else 'camp1')
+    stencil(cv, 16 - tw // 2, 22, 'DANGER', 'dyn', shadow=None, rng=rng, chip=.04)
+    for (x, y) in [(5, 18), (6, 18), (7, 18), (24, 18), (25, 18), (26, 18)]:   # stencil bars
+        cv.px(x, y, 'dyn_dk')
+    outline(cv, None)
+    return cv
+
+
+# ---------------------------------------------------------------- locomotive boss
+LOCO_DRIVERS = [(36, 47), (56, 47)]       # drive-wheel centres on the loco piece (wheel radius 9)
+LOCO_WINDOW = (9, 13, 12, 12)             # cab window x, y, w, h (engineer inside)
+
+
+def spoked_wheel(cv, cx, cy, r, nsp=12, counterweight=True, crank=0.0):
+    rim_in = r - 2.2
+    for y in range(int(cy - r - 1), int(cy + r + 2)):
+        for x in range(int(cx - r - 1), int(cx + r + 2)):
+            dx, dy = x + .5 - cx, y + .5 - cy
+            d = math.hypot(dx, dy)
+            if d > r:
+                continue
+            lit = -(dx * .6 + dy * .8) / r
+            ang = math.atan2(dy, dx)
+            if d > r - 1.2:
+                c = 'steel2' if lit > .35 else ('steel1' if lit > -.35 else 'steel0')
+            elif d > rim_in:
+                c = 'red1' if lit < .2 else 'red2'
+            elif d < 1.3:
+                c = 'iron3' if lit > 0 else 'iron2'
+            elif d < 2.3:
+                c = 'red3' if lit > 0 else 'red2'
+            else:
+                da = (ang - crank) % (2 * math.pi / nsp)
+                da = min(da, 2 * math.pi / nsp - da) * d
+                cwa = abs(((ang - crank - math.pi) + math.pi) % (2 * math.pi) - math.pi)
+                if counterweight and cwa < .8 and d > 3.2:
+                    c = 'red2' if lit > 0 else 'red1'
+                elif da < .72:
+                    c = 'red4' if lit > .3 else ('red3' if lit > -.3 else 'red2')
+                else:
+                    continue
+            cv.px(x, y, c)
+    if counterweight:                                            # crank pin
+        px_, py_ = cx + math.cos(crank) * r * .5, cy + math.sin(crank) * r * .5
+        cv.px(px_ - .5, py_ - .5, 'steel3'); cv.px(px_ + .5, py_ - .5, 'steel1')
+        cv.px(px_ - .5, py_ + .5, 'steel1'); cv.px(px_ + .5, py_ + .5, 'steel0')
+
+
+def train_wheel():
+    cv = Canvas(18, 18)
+    spoked_wheel(cv, 9, 9, 9, 10, True, crank=0.0)
+    return cv
+
+
+def h_cyl(cv, x0, x1, y0, y1, ramp, hl=.0, k=.55):
+    """Horizontal cylinder seen side-on: shade by row, highlight band high."""
+    h = y1 - y0
+    for y in range(y0, y1 + 1):
+        v = (y + .5 - y0) / (h + 1)
+        t = (.85 + hl - (.25 - v) * 1.6) if v < .25 else (.85 + hl - (v - .25) * k * 2.3)
+        for x in range(x0, x1 + 1):
+            cv.px(x, y, qpick(ramp, t, x, y))
+
+
+def loco():
+    cv = Canvas(96, 56)
+    rng = np.random.default_rng(SEED + 4001)
+    # frame + pilot truck
+    for x in range(20, 88):
+        cv.px(x, 41, 'iron2'); cv.px(x, 42, 'iron1')
+    for (cx, cy) in [(73, 50.5), (83, 50.5)]:
+        spoked_wheel(cv, cx, cy, 5.2, 8, False)
+        cv.px(cx - .5, cy - .5, 'brass2')
+    for x in range(69, 88):                                        # truck side frame
+        cv.px(x, 47, 'iron2' if x % 4 else 'iron3')
+    # cylinder + valve chest
+    h_cyl(cv, 70, 85, 39, 46, IRON)
+    for y in range(39, 47):
+        cv.px(70, y, 'brass1'); cv.px(85, y, 'brass1'); cv.px(71, y, 'brass2')
+    for y in range(35, 39):
+        for x in range(72, 84):
+            cv.px(x, y, 'iron3' if y == 35 else ('iron2' if x > 73 else 'iron3'))
+    # boiler
+    h_cyl(cv, 28, 76, 22, 38, IRON, hl=.02)
+    for bx in (45, 63):                                            # brass bands
+        for y in range(22, 39):
+            v = (y - 22) / 16
+            cv.px(bx, y, 'brass3' if v < .2 else ('brass2' if v < .55 else 'brass1'))
+            cv.px(bx + 1, y, 'brass1' if v < .55 else 'brass0')
+    # smokebox (sooty, slightly larger) + front ring
+    h_cyl(cv, 76, 88, 21, 39, CHAR, hl=.0)
+    for y in range(22, 39):
+        cv.px(76, y, 'iron3'); cv.px(77, y, 'iron1')
+        cv.px(88, y, 'iron3' if y < 30 else 'iron2')
+    # handrail with stanchions
+    for x in range(30, 87):
+        cv.px(x, 27, 'steel2' if x < 76 else 'steel1')
+    for x in range(34, 86, 9):
+        cv.px(x, 28, 'steel0')
+    # running board
+    for x in range(26, 90):
+        cv.px(x, 38, 'iron3'); cv.px(x, 39, 'iron1')
+    # splashers over the drivers (brass beading)
+    for (cx, cy) in LOCO_DRIVERS:
+        for y in range(34, 40):
+            for x in range(cx - 12, cx + 13):
+                d = math.hypot(x + .5 - cx, y + .5 - cy)
+                if 9.6 < d <= 11.6 and y < 41:
+                    cv.px(x, y, 'brass2' if d > 10.8 else 'iron2')
+    # diamond stack
+    sx = 79.5
+    for y in range(1, 22):
+        if y >= 14:
+            hw = 2.5
+        elif y >= 7:
+            hw = 2.5 + (14 - y) / 7 * 5.0
+        else:
+            hw = 7.5 - (7 - y) / 6 * 3.0
+        x0, x1 = int(round(sx - hw)), int(round(sx + hw))
+        for x in range(x0, x1):
+            u = (x + .5 - sx) / hw
+            t = .6 - .5 * u + (.12 if y < 7 else 0)
+            cv.px(x, y, qpick(IRON, t, x, y))
+    for x in range(75, 85):
+        cv.px(x, 1, 'iron4' if x < 79 else 'iron3')
+    for x in range(72, 88):                                         # band at the widest point
+        cv.px(x, 7, 'brass3' if x < 76 else ('brass2' if x < 82 else 'brass1'))
+    for x in range(77, 82):
+        cv.px(x, 20, 'brass2' if x < 79 else 'brass1')
+    # steam dome (brass), sand dome, bell, whistle + pops
+    for y in range(13, 23):
+        for x in range(51, 66):
+            dx = (x + .5 - 58) / (4.6 + max(0, y - 19) * 1.0)
+            dy = (y + .5 - 18.5) / 5.0
+            if (y >= 18 and abs(dx) <= 1) or (y < 18 and dx * dx + dy * dy <= 1):
+                lit = -dx * .8 + (.3 if y < 16 else 0)
+                cv.px(x, y, dpick(BRASS, .5 + .45 * lit, x, y))
+    cv.px(57, 13, 'brass3'); cv.px(58, 12, 'brass2')
+    for y in range(16, 23):
+        for x in range(38, 46):
+            dx = (x + .5 - 42) / (3.0 + max(0, y - 20))
+            if abs(dx) <= 1 and not (y == 16 and abs(dx) > .6):
+                cv.px(x, y, dpick(IRON, .55 - dx * .4, x, y))
+    for x in range(40, 45):
+        cv.px(x, 16, 'brass2' if x < 43 else 'brass1')
+    for (x, y, c) in [(68, 15, 'iron2'), (69, 15, 'iron2'), (68, 16, 'brass2'), (69, 16, 'brass1'),
+                      (67, 17, 'brass3'), (68, 17, 'brass2'), (69, 17, 'brass1'), (70, 17, 'brass1'),
+                      (67, 18, 'brass2'), (68, 18, 'brass2'), (69, 18, 'brass1'), (70, 18, 'brass0'),
+                      (66, 19, 'brass2'), (67, 19, 'brass2'), (68, 19, 'brass1'), (69, 19, 'brass1'), (70, 19, 'brass0'),
+                      (71, 19, 'brass0'), (68, 20, 'iron2'), (68, 21, 'iron2')]:
+        cv.px(x, y, c)                                              # bell
+    for (x, y, c) in [(32, 15, 'brass3'), (32, 16, 'brass2'), (33, 16, 'brass1'), (32, 17, 'brass2'), (33, 17, 'brass1'),
+                      (32, 18, 'brass1'), (32, 19, 'iron2'), (32, 20, 'iron2'), (32, 21, 'iron1'),
+                      (36, 19, 'brass2'), (37, 19, 'brass1'), (36, 20, 'brass1'), (37, 20, 'brass0'), (36, 21, 'iron2')]:
+        cv.px(x, y, c)                                              # whistle + safety valve
+    # headlamp: big box lamp on the smokebox, lens blazing forward
+    for y in range(11, 21):
+        for x in range(84, 94):
+            c = 'iron2' if x < 86 else 'iron1'
+            if y == 11:
+                c = 'iron3'
+            if x == 84:
+                c = 'iron3'
+            cv.px(x, y, c)
+    for x in range(85, 93):
+        cv.px(x, 13, 'brass2' if x < 89 else 'brass1')              # number board trim
+    for x in range(86, 91):
+        cv.px(x, 15, 'gold1' if x % 2 else 'gold0')
+    for y in range(12, 20):
+        cv.px(94, y, 'brass2')
+    for (x, y, c) in [(95, 13, 'lit_win'), (95, 14, 'amber2'), (95, 15, 'amber2'), (95, 16, 'amber2'),
+                      (95, 17, 'lit_win'), (95, 18, 'amber1'), (95, 12, 'amber1')]:
+        cv.px(x, y, c)
+    for (x, y, c) in [(87, 9, 'iron2'), (88, 9, 'iron2'), (87, 10, 'iron3'), (88, 10, 'iron2'), (86, 8, 'iron3'),
+                      (87, 8, 'iron3'), (88, 8, 'iron2'), (89, 8, 'iron1')]:
+        cv.px(x, y, c)                                              # lamp chimney
+    for x in range(86, 92):
+        cv.px(x, 21, 'iron2')                                       # bracket
+    # buffer beam, coupler, cowcatcher
+    for y in range(40, 45):
+        for x in range(86, 93):
+            cv.px(x, y, 'red3' if y == 40 else ('red2' if y < 43 else 'red1'))
+    cv.px(93, 42, 'iron3'); cv.px(94, 42, 'iron2'); cv.px(94, 43, 'iron1'); cv.px(95, 42, 'iron2')
+    m = Image.new('L', (96, 56), 0)
+    ImageDraw.Draw(m).polygon([(84, 45), (90, 45), (95.5, 53.5), (95.5, 55.5), (84, 55.5)], fill=255)
+    m = np.array(m) > 0
+    for y, x in zip(*np.nonzero(m)):
+        s = int(x - .62 * y) % 3
+        c = ['red0', 'red3', 'red2'][s] if y > 45 else 'red4'          # sloped slats
+        if y >= 53 and s:
+            c = 'red1'
+        cv.px(x, y, c)
+    for x in range(84, 96):
+        cv.px(x, 55, 'iron2' if x < 95 else 'iron1')
+    # cab: varnished wood, arched roof, gold-lined panel and B&A lettering
+    for y in range(11, 45):
+        for x in range(4, 30):
+            c = 'ox3' if x <= 6 else ('ox1' if x >= 26 else 'ox2')
+            if (y - 11) % 4 == 3 and y < 26 and 4 < x < 29:
+                c = 'ox1'                                           # tongue-and-groove siding
+            if x == 4:
+                c = 'ox4'
+            if x == 29:
+                c = 'ox1'
+            cv.px(x, y, c)
+    for x in range(6, 28):                                          # lined panel
+        cv.px(x, 26, 'gold0'); cv.px(x, 41, 'gold0')
+    for y in range(26, 42):
+        cv.px(6, y, 'gold0'); cv.px(27, y, 'gold0')
+    for x in range(7, 27):
+        for y in range(27, 41):
+            if (x + y) % 7 == 0 and y < 34:
+                cv.px(x, y, 'ox3')
+    for x in range(2, 31):                                          # sill + roof
+        cv.px(x, 44, 'iron2'); cv.px(x, 45, 'iron1')
+    for (y, x0, x1, c) in [(6, 5, 28, 'iron3'), (7, 3, 30, 'iron2'), (8, 1, 31, 'iron2'), (9, 1, 31, 'iron1'),
+                           (10, 2, 30, 'ox0')]:
+        for x in range(x0, x1 + 1):
+            cv.px(x, y, c)
+    for x in range(6, 26, 4):
+        cv.px(x, 7, 'iron4')
+    wx, wy, ww, wh = LOCO_WINDOW
+    for y in range(wy - 1, wy + wh + 1):                           # window frame
+        for x in range(wx - 1, wx + ww + 1):
+            cv.px(x, y, 'wood4' if (x == wx - 1 or y == wy - 1) else 'wood2')
+    for y in range(wy, wy + wh):
+        for x in range(wx, wx + ww):
+            t = (y - wy) / wh
+            cv.px(x, y, 'cave1' if t < .55 else ('amber0' if (x + y) % 2 else 'red0'))   # firebox glow
+    eng = [  # engineer: striped cap, red bandana, looking ahead
+        "..bwbw..",
+        ".bwbwbwb",
+        "..hSSSS.",
+        "..hSSkSs",
+        "..hSSSS.",
+        "...sSSs.",
+        "..rrRrr.",
+        ".jjjjjjj",
+        ".jJJjjSS",
+    ]
+    amap(cv, wx + 3, wy + 1, eng, {'b': 'blue1', 'w': 'wht4', 'h': 'hair0', 'S': 'skin1', 's': 'skin0', 'k': 'ink',
+                                   'r': 'tie', 'R': 'tie_dk', 'j': 'blue0', 'J': 'blue1'})
+    cv.px(wx + ww - 1, wy + 5, 'skin2')
+    tw = text_w('B&A')
+    stencil(cv, 17 - tw // 2, 30, 'B&A', 'gold1', shadow='ox0', col2='gold2')
+    # front cab window + cab steps + firebox below
+    for y in range(14, 20):
+        cv.px(28, y, 'glass2' if y < 16 else 'glass1')
+    for y in range(46, 53):
+        cv.px(5, y, 'iron2'); cv.px(9, y, 'iron1')
+    for x in range(5, 10):
+        cv.px(x, 49, 'iron3'); cv.px(x, 52, 'iron3')
+    for y in range(39, 46):                                          # firebox between cab and drivers
+        for x in range(20, 27):
+            cv.px(x, y, 'char2' if x < 22 else 'char1')
+    for (x, y) in [(22, 44), (23, 44), (24, 45)]:
+        cv.px(x, y, 'fire2')
+    # sand pipe + steam pipe
+    for (x, y) in bres(44, 23, 46, 37):
+        cv.px(x, y, 'iron2')
+    for y in range(39, 41):
+        cv.px(79, y, 'iron3'); cv.px(80, y, 'iron2')
+    for (x, y) in [(31, 31), (40, 33), (52, 31), (68, 33)]:          # boiler rivet glints
+        cv.px(x, y, 'iron4')
+    outline(cv, None)
+    # empty space for the code-drawn drive wheels
+    for (cx, cy) in LOCO_DRIVERS:
+        for y in range(cy - 10, cy + 10):
+            for x in range(cx - 10, cx + 10):
+                if 0 <= y < 56 and math.hypot(x + .5 - cx, y + .5 - cy) <= 9.6:
+                    cv.a[y, x] = 0
+    for (x, y, a) in [(95, 10, 90), (95, 20, 90)]:
+        if cv.get(x, y)[3] == 0:
+            cv.px(x, y, C('lit_win', a))
+    return cv
+
+
+def tender():
+    cv = Canvas(44, 40)
+    rng = np.random.default_rng(SEED + 4002)
+    for (cx, cy) in [(8, 35.5), (16, 35.5), (28, 35.5), (36, 35.5)]:
+        spoked_wheel(cv, cx, cy, 4.4, 8, False)
+        cv.px(cx - .5, cy - .5, 'brass2')
+    for (x0, x1) in [(3, 21), (23, 41)]:                            # arch-bar trucks
+        for x in range(x0, x1 + 1):
+            cv.px(x, 33, 'iron3'); cv.px(x, 34, 'iron1') if (x - x0) % 8 in (3, 4) else None
+        for x in range(x0 + 6, x0 + 13):
+            cv.px(x, 36, 'iron2')
+        cv.px(x0 + 9, 35, 'iron3'); cv.px(x0 + 9, 37, 'iron1')
+    for x in range(1, 44):
+        cv.px(x, 31, 'iron2'); cv.px(x, 32, 'iron1')
+    cv.px(42, 30, 'iron3'); cv.px(43, 30, 'iron2')                 # drawbar
+    # tank
+    for y in range(13, 31):
+        for x in range(1, 43):
+            t = .5 - (y - 13) / 17 * .3 - (x - 1) / 42 * .1
+            if y == 13:
+                t = .9
+            cv.px(x, y, qpick(IRON, t, x, y))
+    for x in range(3, 41):
+        cv.px(x, 15, 'gold0'); cv.px(x, 28, 'gold0')
+    for y in range(15, 29):
+        cv.px(3, y, 'gold0'); cv.px(40, y, 'gold0')
+    for y in range(13, 31):
+        cv.px(1, y, 'iron3')
+    for x in range(1, 43, 4):
+        cv.px(x, 30, 'iron4')
+    # flared coal boards + heaped coal
+    for x in range(2, 42):
+        cv.px(x, 12, 'iron3'); cv.px(x, 11, 'iron2' if x < 9 or x > 34 else 'iron1')
+    heap = fbm(44, 16, 6, 3, rng, 3)
+    for x in range(4, 41):
+        top = 11 - int(round(8.5 * max(0, 1 - ((x - 27) / 16.5) ** 2))) + int(rng.integers(0, 2))
+        for y in range(max(1, top), 13):
+            if y >= 11 and (x < 6 or x > 38):
+                continue
+            n = heap[y, x]
+            t = .55 - (y - top) * .06 + (n - .5) * .7
+            c = dpick(CHAR, t, x, y)
+            if n > .78 and (x + y) % 3 == 0:
+                c = 'rock3'
+            if n > .86 and (x * 3 + y) % 5 == 0:
+                c = 'iron4'
+            cv.px(x, y, c)
+    # water hatch + rear marker lamp
+    for x in range(6, 12):
+        cv.px(x, 10, 'iron3' if x < 9 else 'iron2')
+    cv.px(8, 9, 'brass2')
+    for (x, y, c) in [(0, 17, 'iron2'), (0, 18, 'tie'), (0, 19, 'red3'), (0, 20, 'iron2')]:
+        cv.px(x, y, c)
+    outline(cv, None)
+    return cv
+
+
+def _post_pattern(cv, oy, grain):
+    """One 48px repeat of the trestle bent post + sway bracing, drawn at y offset oy.
+    Braces zig-zag edge to edge every 24px, so the strip repeats seamlessly."""
+    for (y0, x0, x1) in [(0, 0, 15), (24, 15, 0)]:                  # braces behind the post
+        for (x, y) in bres(x0, y0, x1, y0 + 23):
+            cv.px(x, y + oy, 'cre4'); cv.px(x + 1, y + oy, 'cre3'); cv.px(x + 2, y + oy, 'cre1')
+    for (y0, x0, x1) in [(0, 15, 0), (24, 0, 15)]:                  # and the opposite diagonals, in front
+        for (x, y) in bres(x0, y0, x1, y0 + 23):
+            cv.px(x - 1, y + oy, 'cre5'); cv.px(x, y + oy, 'cre3'); cv.px(x + 1, y + oy, 'cre2')
+    for y in range(48):
+        for x in range(5, 11):
+            t = .82 - (x - 5) / 5 * .72 + (grain[y, x] - .5) * .25
+            if x in (7, 9) and (y + int(grain[y, x] * 6)) % 9 < 3:
+                t -= .2
+            cv.px(x, y + oy, qpick(CRE, t, x, y))
+    for (y0, x0, x1) in [(0, 15, 0), (24, 0, 15)]:                  # front braces cross over the post
+        for (x, y) in bres(x0, y0, x1, y0 + 23):
+            if 4 <= x <= 11 and 6 <= y - y0 <= 17:
+                cv.px(x - 1, y + oy, 'cre5'); cv.px(x, y + oy, 'cre3'); cv.px(x + 1, y + oy, 'cre2')
+    for yy in (0, 24):                                              # girts where the braces meet
+        for x in range(16):
+            cv.px(x, yy + oy, 'cre5' if x % 5 else 'cre4')
+            cv.px(x, yy + 1 + oy, 'cre3')
+            cv.px(x, yy + 2 + oy, 'cre1')
+        for x in (2, 8, 13):
+            cv.px(x, yy + 1 + oy, 'steel2')
+    for (x, y) in [(7, 12), (8, 36)]:                               # through-bolts at the crossings
+        cv.px(x, y + oy, 'steel3'); cv.px(x + 1, y + oy, 'iron1'); cv.px(x, y + 1 + oy, 'iron1')
+
+
+def trestle_post(torn=False):
+    grain = vnoise(16, 48, 3, 8, np.random.default_rng(SEED + 4003))
+    big = Canvas(16, 48 * 3)
+    for oy in (0, 48, 96):
+        _post_pattern(big, oy, grain)
+    if torn:
+        rng = np.random.default_rng(SEED + 4004)
+        # snap the post (and the braces) through the middle, leaving splintered ends
+        for x in range(0, 16):
+            top = 48 + 16 + int(rng.integers(0, 3)) + (2 if 6 <= x <= 9 and x % 2 else 0)
+            bot = 48 + 30 - int(rng.integers(0, 3)) - (2 if 5 <= x <= 10 and x % 2 == 0 else 0)
+            for y in range(top, bot):
+                big.a[y, x] = 0
+            if 5 <= x <= 10:
+                big.px(x, top - 1, 'wood5' if x % 2 else 'wood4')
+                big.px(x, top - 2, 'wood3' if x % 2 else 'wood4')
+                big.px(x, bot, 'wood4' if x % 2 == 0 else 'wood5')
+                big.px(x, bot + 1, 'wood3')
+        for (x, y, c) in [(7, 48 + 16, 'wood4'), (7, 48 + 17, 'wood5'), (9, 48 + 17, 'wood4'), (9, 48 + 18, 'wood5'),
+                          (6, 48 + 28, 'wood5'), (6, 48 + 27, 'wood4'), (10, 48 + 27, 'wood5'),
+                          (2, 48 + 21, 'cre3'), (3, 48 + 22, 'cre2'), (13, 48 + 25, 'cre3'), (12, 48 + 24, 'cre2')]:
+            big.px(x, y, c)
+    outline(big, None)
+    cv = Canvas(16, 48)
+    cv.a[:] = big.a[48:96]
+    return cv
+
+
+def rowboat():
+    cv = Canvas(56, 20)
+    rng = np.random.default_rng(SEED + 4005)
+    # air pump: a wooden box amidships with a big brass flywheel on its side
+    for y in range(4, 12):
+        for x in range(25, 38):
+            cv.px(x, y, 'wood4' if y == 4 else ('wood3' if x < 28 else 'wood2'))
+    cv.px(26, 4, 'wood5')
+    for y in range(0, 10):
+        for x in range(26, 37):
+            dx, dy = x + .5 - 31.5, y + .5 - 4.5
+            d = math.hypot(dx, dy)
+            if 3.4 < d <= 4.5:
+                cv.px(x, y, 'brass3' if (dx + dy) < -2 else ('brass2' if (dx + dy) < 2 else 'brass1'))
+            elif d <= 3.4 and (abs(dx) < .6 or abs(dy) < .6):
+                cv.px(x, y, 'iron2')
+            elif d <= 1.2:
+                cv.px(x, y, 'iron3')
+    cv.px(31, 4, 'brass3')
+    for (x, y, c) in [(35, 1, 'wood4'), (36, 0, 'wood4'), (35, 2, 'iron2')]:   # crank handle
+        cv.px(x, y, c)
+    # coil of air hose heaped in the stern: stacked loops, each lit along its top
+    for k, (cy, rx) in enumerate([(8.2, 6.6), (6.9, 6.0), (5.6, 5.2), (4.4, 4.2)]):
+        for x in range(int(14 - rx - 1), int(14 + rx + 2)):
+            for y in range(int(cy - 2), int(cy + 3)):
+                d = ((x + .5 - 14) / rx) ** 2 + ((y + .5 - cy) / 1.5) ** 2
+                if .45 < d <= 1.05:
+                    top = y + .5 < cy
+                    cv.px(x, y, ('cnv2' if (x + k) % 3 else 'cnv3') if top else ('cnv1' if d < .8 else 'cnv0'))
+    for (x, y, c) in [(20, 5, 'brass2'), (21, 5, 'brass3'), (22, 5, 'cnv1'), (23, 6, 'cnv1'), (24, 7, 'cnv0')]:
+        cv.px(x, y, c)                                               # hose run to the pump
+    # hose over the gunwale and down into the water (the long hose continues in code)
+    for (x, y) in bres(38, 8, 44, 6) + bres(44, 6, 46, 9) + bres(46, 9, 46, 19):
+        cv.px(x, y, 'cnv2'); cv.px(x + 1, y, 'cnv0')
+    # lapstrake hull
+    poly = [(1, 6), (10, 8.5), (22, 9.6), (34, 9.6), (44, 8), (51, 5), (55, 2), (55.6, 4), (53, 10), (49, 16),
+            (45, 20), (6, 20), (2, 15)]
+    m = Image.new('L', (56, 20), 0)
+    ImageDraw.Draw(m).polygon(poly, fill=255)
+    m = np.array(m) > 0
+    sheer = [int(np.nonzero(m[:, x])[0].min()) if m[:, x].any() else 99 for x in range(56)]
+    paint = fbm(56, 20, 7, 3, rng, 3)
+    for y, x in zip(*np.nonzero(m)):
+        k = (y - sheer[x])
+        if k <= 0:
+            c = 'wood5' if x % 6 == 2 else 'wood4'                   # gunwale cap
+        elif k == 1:
+            c = 'wood2'
+        else:
+            s = (k - 2) % 3
+            t = [.8, .55, .18][s] - (y / 20) * .12
+            c = qpick(['board0', 'board1', 'board2', 'board3', 'board4'], t, x, y)
+            if paint[y, x] > .64 and s == 1:                         # last flakes of white paint
+                c = 'wht2'
+            if y >= 17:
+                c = qpick(['algae0', 'algae1', 'algae2'], .65 - (y - 17) * .25 + (paint[y, x] - .5) * .5, x, y)
+        cv.px(x, y, c)
+    for x in (12, 40):                                               # oarlocks
+        cv.px(x, sheer[x] - 1, 'steel1'); cv.px(x + 1, sheer[x] - 1, 'steel0')
+    for (x, y) in [(5, 12), (5, 13), (26, 14), (27, 14), (38, 12)]:  # rust weeping from nails
+        cv.px(x, y, 'rust1')
+    for x in range(50, 54):                                          # stem band
+        cv.px(x, sheer[x] + 1, 'steel1')
+    outline(cv, None)
+    for x in range(56):                                              # clean waterline: nothing below row 19
+        if cv.a[19, x, 3] and not m[19, x]:
+            cv.a[19, x] = 0
+    return cv
+
+
+def hose_piece(cut=False):
+    cv = Canvas(12, 12)
+    for x in range(0, 12):                                           # hose
+        if cut and 3 <= x <= 9:
+            continue
+        cv.px(x, 5, 'smoke1' if x % 3 else 'char3'); cv.px(x, 6, 'char2'); cv.px(x, 7, 'char1')
+    body = [(3, 'brass1', 3, 9), (4, 'brass3', 3, 9), (5, 'brass2', 4, 8), (6, 'brass2', 4, 8), (7, 'brass1', 3, 9),
+            (8, 'brass0', 3, 9)]
+    for (x, c, y0, y1) in body:
+        if cut and x >= 7:
+            continue
+        for y in range(y0, y1 + 1):
+            cv.px(x, y, c if y > y0 else 'brass3' if x < 6 else 'brass2')
+    if not cut:
+        for (x, y, c) in [(5, 3, 'brass1'), (6, 3, 'brass1'), (5, 2, 'brass2'), (6, 2, 'brass1'),
+                          (3, 1, 'red3'), (4, 1, 'red3'), (5, 1, 'red2'), (6, 1, 'red2'), (7, 1, 'red1'), (8, 1, 'red1')]:
+            cv.px(x, y, c)
+        cv.px(4, 4, 'steel3')
+    else:
+        for (x, y, c) in [(7, 4, 'brass1'), (7, 8, 'brass0'), (8, 5, 'char2'), (8, 7, 'char1'), (9, 8, 'cnv2'),
+                          (10, 7, 'char2'), (10, 6, 'char1'), (9, 9, 'cnv2'), (11, 6, 'char2')]:
+            cv.px(x, y, c)                                           # torn, frayed ends
+        cv.px(4, 4, 'steel3')
+    outline(cv, None)
+    if cut:                                                          # air spraying out as bubbles
+        for (x, y, r_) in [(8, 2.5, 1.4), (10.5, 1.5, 1.0), (9.5, 4.5, .9), (7, 0.5, .8), (11, 3.5, .7)]:
+            for yy in range(int(y - 2), int(y + 2)):
+                for xx in range(int(x - 2), int(x + 2)):
+                    d = math.hypot(xx + .5 - x, yy + .5 - y)
+                    if d <= r_ + .3:
+                        rim = d > r_ - .6
+                        cv.px(xx, yy, C('foam', 230) if rim and yy + .5 < y else
+                              (C('water_hi', 200) if rim else C('water1', 90)))
+        cv.px(8, 2, 'eye_w')
+    return cv
+
+
+def smoke_puff():
+    cv = Canvas(16, 16)
+    blobs = [(7.5, 9.8, 5.0), (10.6, 6.6, 3.9), (5.2, 6.4, 3.5), (11.4, 10.6, 3.3), (8.2, 4.4, 3.0)]
+    for y in range(16):
+        for x in range(16):
+            best, lit = -9.0, 0.0
+            for (bx, by, br) in blobs:
+                dx, dy = (x + .5 - bx) / br, (y + .5 - by) / br
+                d = math.hypot(dx, dy)
+                if d <= 1 and 1 - d > best:
+                    best, lit = 1 - d, -(dx * .6 + dy * .8)
+            if best < 0:
+                continue
+            t = .45 + .4 * lit + (.1 if y < 8 else -.05)
+            col = qpick(SMK, t, x, y)
+            a = 235
+            if best < .14:                                           # soft, broken edge
+                a = 150 if B4[y % 4, x % 4] < .5 else 90
+            cv.px(x, y, C(col, a))
+    return cv
+
+
+def build_boss_train():
+    pieces = [
+        ('loco', loco(), (48, 56)),
+        ('tender', tender(), (22, 40)),
+        ('wheel', train_wheel(), (9, 9)),
+        ('post', trestle_post(False), (8, 0)),
+        ('post_torn', trestle_post(True), (8, 0)),
+        ('rowboat', rowboat(), (28, 20)),
+        ('hose_valve', hose_piece(False), (6, 6)),
+        ('hose_cut', hose_piece(True), (6, 6)),
+        ('smoke', smoke_puff(), (8, 8)),
+    ]
+    x, meta = 0, {}
+    for name, cv, pv in pieces:
+        meta[name] = {'rect': [x, 0, cv.w, cv.h], 'pivot': [pv[0], pv[1]]}
+        x += cv.w + 2
+    W, H = x - 2, max(cv.h for _, cv, _ in pieces)
+    sheet = Canvas(W, H)
+    for name, cv, pv in pieces:
+        rx, ry, w, h = meta[name]['rect']
+        sheet.a[ry:ry + h, rx:rx + w] = cv.a
+    sheet.save('boss_train.png')
+    with open(os.path.join(OUT, 'boss_train.json'), 'w') as f:
+        json.dump(meta, f, indent=1)
+    # assembled demo: train crossing the trestle, one bent torn, the diver's boat below
+    P = {n: cv for n, cv, _ in pieces}
+    PV = {n: pv for n, _, pv in pieces}
+    demo = Canvas(240, 150)
+    tl = build_tiles.last if hasattr(build_tiles, 'last') else None
+    deck_y = 64
+    if tl is not None:
+        for i in range(15):
+            demo.blit(tl.a[12 * 16:13 * 16, (i % 4) * 16:(i % 4) * 16 + 16], i * 16, deck_y)
+    for i, bx in enumerate(range(8, 240, 48)):
+        nm = 'post_torn' if i == 2 else 'post'
+        for k in range(2):
+            demo.blit(P[nm if k == 0 else 'post'].a, bx, deck_y + 16 + k * 48)
+
+    def place(nm, x, y):
+        demo.blit(P[nm].a, x - PV[nm][0], y - PV[nm][1])
+    place('tender', 60, deck_y)
+    place('loco', 132, deck_y)
+    for (cx, cy) in LOCO_DRIVERS:
+        place('wheel', 132 - 48 + cx, deck_y - 56 + cy)
+    place('smoke', 166, 4); place('smoke', 152, 10)
+    place('rowboat', 190, 146)
+    place('hose_valve', 208, 120)
+    place('hose_cut', 226, 120)
+    return sheet, demo
+
+
+# ============================================================================
 # PREVIEW SHEET
 # ============================================================================
 def build_preview(built):
@@ -4479,6 +5940,8 @@ def build_preview(built):
         blocks.append((k + '.png', scaled(on_checker(built[k].image()), K)))
     blocks.append(('boss_shovel.png', scaled(on_checker(built['shovel'].image()), K)))
     blocks.append(('boss_shovel (assembled)', scaled(on_checker(built['shovel_demo'].image()), K)))
+    blocks.append(('boss_train.png', scaled(on_checker(built['train'].image()), K)))
+    blocks.append(('boss_train (assembled)', scaled(on_checker(built['train_demo'].image()), K)))
     for area in AREAS:
         sky, far, mid = built['bgs'][area]
         im = sky.image().copy()
@@ -4521,6 +5984,7 @@ def main():
     built['props'] = build_props()
     built['decor'] = build_decor()
     built['shovel'], built['shovel_demo'] = build_boss_shovel()
+    built['train'], built['train_demo'] = build_boss_train()
     built['bgs'] = build_backgrounds()
     build_preview(built)
     print('done')

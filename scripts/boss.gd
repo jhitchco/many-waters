@@ -1,5 +1,5 @@
 extends Node2D
-## The two boss fights.
+## The first two boss fights (boss2.gd has the train, the Houndmaster and the Diver).
 ##
 ## The Foreman (Enfield sawmill): a giant burner. His front is a wall of fire; get behind
 ## him and tear at his tanks. He turns toward you, slowly.
@@ -133,7 +133,8 @@ func take_operator() -> void:
 
 
 # ---------------------------------------------------------------- update
-func physics(delta: float) -> void:
+## Updates both fights. Returns [title, hp, max] for the one you are in, or [].
+func physics(delta: float) -> Array:
 	var c = G.creature
 	if foreman["alive"]:
 		_update_foreman(c, delta)
@@ -155,10 +156,9 @@ func physics(delta: float) -> void:
 	if shovel["alive"]:
 		G.sfx.engine_db = clampf(-6.0 - (c.position.distance_to(shovel["base"]) / 22.0), -60.0, -6.0)
 	if active == "":
-		G.hud.boss_bar("", 0, 0)
-	else:
-		var b: Dictionary = foreman if active == "foreman" else shovel
-		G.hud.boss_bar(Data.BOSSES[active]["title"], b["hp"], b["max"])
+		return []
+	var b: Dictionary = foreman if active == "foreman" else shovel
+	return [Data.BOSSES[active]["title"], b["hp"], b["max"]]
 
 
 func _update_foreman(c, delta: float) -> void:

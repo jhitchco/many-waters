@@ -3,9 +3,9 @@ extends Node
 ## the creature's slither and dig loops, a heartbeat when weak, and muffling underwater.
 
 const NAMES := ["squelch", "hurt", "bell", "crack", "boom", "shot", "splash", "chime", "tick", "gasp", "swing", "flood",
-	"unlock", "scream", "scream2", "bleat", "whisper", "splash_big", "heartbeat", "bark", "flame", "snap", "roar", "howl", "gurgle", "paper", "sting"]
+	"unlock", "scream", "scream2", "bleat", "whisper", "splash_big", "heartbeat", "bark", "flame", "snap", "roar", "howl", "gurgle", "paper", "sting", "whistle", "whip", "harpoon", "bubbles", "crash"]
 const VOL := {"gasp": -10.0, "swing": -8.0, "tick": -6.0, "splash": -6.0, "shot": -4.0, "scream": -7.0, "scream2": -7.0,
-	"bleat": -8.0, "bark": -6.0, "flame": -6.0, "gurgle": -10.0, "paper": -4.0, "howl": -9.0, "roar": -2.0, "whisper": -6.0, "heartbeat": -4.0, "splash_big": -5.0}
+	"bleat": -8.0, "bark": -6.0, "flame": -6.0, "gurgle": -10.0, "paper": -4.0, "howl": -9.0, "roar": -2.0, "whistle": -5.0, "bubbles": -6.0, "whisper": -6.0, "heartbeat": -4.0, "splash_big": -5.0}
 const MUSIC_DB := -9.0
 const AMB_DB := -13.0
 const FADE := 2.5
@@ -30,24 +30,44 @@ var crackle_db := -60.0
 var drone: AudioStreamPlayer
 var muffle: AudioEffectLowPassFilter
 var heart_t := 0.0
+var vol := {"music": 0.8, "sound": 0.9}
+const SETTINGS := "user://settings.json"
 var was_wet := false
 
 
 func _ready() -> void:
+	for b in ["Music", "SFX"]:
+		if AudioServer.get_bus_index(b) == -1:
+			AudioServer.add_bus()
+			var i := AudioServer.bus_count - 1
+			AudioServer.set_bus_name(i, b)
+			AudioServer.set_bus_send(i, "Master")
+	var saved = JSON.parse_string(FileAccess.get_file_as_string(SETTINGS)) if FileAccess.file_exists(SETTINGS) else null
+	if typeof(saved) == TYPE_DICTIONARY:
+		for k in vol:
+			if saved.has(k):
+				vol[k] = clampf(float(saved[k]), 0.0, 1.0)
 	for n in NAMES:
 		streams[n] = load("res://assets/sfx/%s.wav" % n)
 	for i in 12:
 		var p := AudioStreamPlayer.new()
+		p.bus = "SFX"
 		add_child(p)
 		pool.append(p)
 	for i in 2:
 		music.append(_looper(-80.0))
 		amb.append(_looper(-80.0))
+	for p in music + amb:
+		p.bus = "Music"
 	slither = _looper(-80.0, "res://assets/sfx/slither.wav")
 	digging = _looper(-80.0, "res://assets/sfx/dig.wav")
 	engine = _looper(-80.0, "res://assets/sfx/engine.wav")
 	crackle = _looper(-80.0, "res://assets/sfx/crackle.wav")
 	drone = _looper(-20.0, "res://assets/sfx/drone.wav")
+	drone.bus = "Music"
+	for p in [slither, digging, engine, crackle]:
+		p.bus = "SFX"
+	_apply_volumes()
 	muffle = AudioEffectLowPassFilter.new()
 	muffle.cutoff_hz = 700.0
 	AudioServer.add_bus_effect(0, muffle)
@@ -88,6 +108,18 @@ func play(n: String, pitch_jitter: float = 0.08) -> void:
 	p.play()
 
 
+## Play at a set pitch and volume (the creature's growl is a pitched-up roar).
+func play_ex(n: String, pitch: float, db: float) -> void:
+	if muted or not streams.has(n):
+		return
+	var p: AudioStreamPlayer = pool[next]
+	next = (next + 1) % pool.size()
+	p.stream = streams[n]
+	p.volume_db = db
+	p.pitch_scale = pitch * randf_range(0.92, 1.08)
+	p.play()
+
+
 func _switch(players: Array, cur: int, path: String) -> int:
 	var nxt := 1 - cur
 	var p: AudioStreamPlayer = players[nxt]
@@ -121,7 +153,7 @@ func _fade(players: Array, cur: int, target: float, delta: float) -> void:
 
 
 func _process(delta: float) -> void:
-	_fade(music, music_cur, MUSIC_DB, delta)
+	_fade(music, music_cur, MUSIC_DB - (5.0 if G.paused else 0.0), delta)
 	_fade(amb, amb_cur, AMB_DB, delta)
 	var c = G.creature
 	var active: bool = G.running and not G.paused and c != null and not c.dead
@@ -141,6 +173,22 @@ func _process(delta: float) -> void:
 		if heart_t <= 0.0:
 			heart_t = 0.7 if c.mass <= 2 else 1.0
 			play("heartbeat", 0.0)
+
+
+## Set "music" or "sound" volume, 0 to 1. Saved between sessions.
+func set_volume(which: String, v: float) -> void:
+	vol[which] = clampf(v, 0.0, 1.0)
+	_apply_volumes()
+	var f := FileAccess.open(SETTINGS, FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify(vol))
+
+
+func _apply_volumes() -> void:
+	for pair in [["Music", vol["music"]], ["SFX", vol["sound"]]]:
+		var i := AudioServer.get_bus_index(pair[0])
+		AudioServer.set_bus_volume_db(i, linear_to_db(maxf(0.0001, pair[1])))
+		AudioServer.set_bus_mute(i, pair[1] <= 0.001)
 
 
 func toggle_mute() -> bool:

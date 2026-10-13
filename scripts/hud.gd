@@ -71,6 +71,7 @@ var ach_desc: Label
 var ach_t := 0.0
 var prog_lbl: Label
 var pause_ach: Label
+var sliders := {}
 var letter_scr: Control
 var letter_title: Label
 var letter_from: Label
@@ -524,6 +525,26 @@ func _build_pause() -> void:
 			"Taken counts the living you eat. Kept counts the graves you open. Animals count for neither.",
 			"Fling  Shift / right-click / LB. Take three in a row quickly for a FRENZY."]:
 		v.add_child(_label(line, mono, 16, BONE if line != "" else DIM))
+	for row in [["MUSIC", "music"], ["SOUND", "sound"]]:
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 16)
+		var l := _label(row[0], mono, 16, GOLD)
+		l.custom_minimum_size = Vector2(90, 0)
+		h.add_child(l)
+		var sl := HSlider.new()
+		sl.name = "slider_" + row[1]
+		sl.min_value = 0.0
+		sl.max_value = 1.0
+		sl.step = 0.05
+		sl.custom_minimum_size = Vector2(320, 24)
+		sl.focus_mode = Control.FOCUS_ALL
+		var which: String = row[1]
+		sl.value_changed.connect(func(val): G.sfx.set_volume(which, val); G.sfx.play("tick", 0.0))
+		h.add_child(sl)
+		var hint := _label("LEFT / RIGHT to change", mono, 12, DIM)
+		h.add_child(hint)
+		v.add_child(h)
+		sliders[which] = sl
 	pause_ach = _label("", mono, 14, GOLD, true)
 	pause_ach.custom_minimum_size = Vector2(900, 0)
 	v.add_child(pause_ach)
@@ -607,6 +628,9 @@ func toggle_overlay(which: String) -> void:
 	if which == "chorus" and open:
 		_fill_chorus()
 	if which == "pause" and open:
+		for k in sliders:
+			sliders[k].set_value_no_signal(G.sfx.vol[k])
+		sliders["music"].grab_focus()
 		var got := []
 		for a in Data.ACHIEVEMENTS:
 			if G.ach.has(a[0]):

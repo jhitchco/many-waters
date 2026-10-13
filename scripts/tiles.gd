@@ -12,10 +12,12 @@ const CONC := 6
 const OPEN := 7
 const CLIFF := 8
 const BOARDS := 9
+const TRESTLE := 10
+const ROOT := 11
 
-const CHARS := {".": E, "#": ROCK, "d": DIRT, "w": WOOD, "g": GRAN, "f": FALSE, "c": CONC, "X": CLIFF, "b": BOARDS}
+const CHARS := {".": E, "#": ROCK, "d": DIRT, "w": WOOD, "g": GRAN, "f": FALSE, "c": CONC, "X": CLIFF, "b": BOARDS, "t": TRESTLE, "h": ROOT}
 ## Row in assets/tiles.png for each solid tile.
-const ATLAS_ROW := {ROCK: 0, DIRT: 1, WOOD: 2, GRAN: 3, FALSE: 4, CONC: 5, CLIFF: 6, BOARDS: 7}
+const ATLAS_ROW := {ROCK: 0, DIRT: 1, WOOD: 2, GRAN: 3, FALSE: 4, CONC: 5, CLIFF: 6, BOARDS: 7, TRESTLE: 12, ROOT: 13}
 const ROW_GRASS := 8
 const ROW_CEIL := 9
 const ROW_MISC := 10
@@ -27,4 +29,4 @@ static func solid_h(t: int) -> bool:
 
 ## Surfaces the creature's tentacles can grip.
 static func cling(t: int) -> bool:
-	return t == ROCK or t == DIRT or t == WOOD or t == GRAN or t == FALSE or t == BOARDS
+	return t == ROCK or t == DIRT or t == WOOD or t == GRAN or t == FALSE or t == BOARDS or t == TRESTLE or t == ROOT
